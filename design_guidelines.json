@@ -1,0 +1,123 @@
+{
+  "project_context": {
+    "app_type": "hybrid_fullstack",
+    "theme": "light_pastel",
+    "vibe": "Professional yet fresh, rural modern, approachable, and trustworthy.",
+    "target_audience": "BUMDES officers (Director, Treasurer, Unit Managers) in a modern rural setting."
+  },
+  "typography": {
+    "fonts": [
+      {
+        "name": "Outfit",
+        "usage": "Headings (H1-H4)",
+        "css_class": "font-sans",
+        "google_font": true
+      },
+      {
+        "name": "Plus Jakarta Sans",
+        "usage": "Body, UI elements, Data tables, Forms",
+        "css_class": "font-sans",
+        "google_font": true
+      }
+    ],
+    "scale": {
+      "h1": "text-4xl sm:text-5xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl tracking-tight leading-snug",
+      "h3": "text-xl sm:text-2xl tracking-tight",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-slate-500",
+      "label": "text-xs uppercase tracking-[0.1em] font-semibold"
+    },
+    "rules": "Never use Inter or generic sans for headings. Emphasize tracking-tight on large headings. Apply Plus Jakarta Sans for high legibility in data-heavy views."
+  },
+  "colors": {
+    "base": {
+      "background": "#FDFBF7",
+      "surface": "#FFFFFF",
+      "border": "#E8EAE6"
+    },
+    "primary": {
+      "light": "#D4E09B",
+      "main": "#8CA650",
+      "dark": "#2E4F32",
+      "foreground": "#FFFFFF"
+    },
+    "secondary": {
+      "blue": "#A8DADC",
+      "purple": "#E1C3F4"
+    },
+    "text": {
+      "primary": "#1A2E1E",
+      "secondary": "#5C6E5E",
+      "muted": "#8A9A8C"
+    },
+    "status": {
+      "success": "#8CA650",
+      "warning": "#F4A261",
+      "error": "#E76F51"
+    },
+    "rules": "Do not use pure black. Use #1A2E1E (Dark Olive) for primary text to ensure contrast over pastel backgrounds. Use Hijau Muda (#D4E09B) and Krem (#FDFBF7) as base, Biru Muda and Ungu Muda for chart accents."
+  },
+  "visual_enhancers": {
+    "surfaces": "Soft Utility. Flat surfaces, max 8px border-radius (`rounded-lg`). Subtle 1px borders (`border-[#E8EAE6]`). NO heavy drop shadows. Use `shadow-sm` on cards. Do NOT use glassmorphism for health/finance apps; stick to solid.",
+    "charts": "Use pastel palette for charts (Hijau Muda, Biru Muda, Ungu Muda) with Recharts. Ensure chart tooltips have clear dark text.",
+    "icons": "Phosphor Icons (Duotone) via `@phosphor-icons/react` for a friendly, professional look.",
+    "borders": "1px solid border on interactive elements. Soft borders on cards to structure the High Density Grid."
+  },
+  "components": {
+    "buttons": "Subtle rounded (`rounded-lg`). Primary button: `bg-[#2E4F32] text-white hover:bg-[#1A2E1E]`. Secondary: `bg-[#D4E09B] text-[#2E4F32] hover:bg-[#C2D184]`.",
+    "cards": "Flat white cards (`bg-white border border-[#E8EAE6] rounded-lg p-6`). Minimalist and clean.",
+    "forms": "Shadcn UI forms. Inputs with `bg-[#FDFBF7] border border-[#E8EAE6] focus:border-[#8CA650] focus:ring-1 focus:ring-[#8CA650]`.",
+    "tables": "Shadcn UI tables. Clean rows, borders on bottom of each row. Headers must have uppercase small labels for scanability.",
+    "sidebar": "Fixed left sidebar. Background `#FFFFFF`, right border 1px `border-[#E8EAE6]`. Active link: `bg-[#D4E09B] text-[#2E4F32] rounded-md`."
+  },
+  "grids_and_layouts": {
+    "dashboard_bento": "High Density Grid. Base: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`. Gap: `gap-6`. Every pixel utilized for metrics.",
+    "spacing": "Generous spacing. `p-6` or `p-8` inside cards. `gap-8` between major sections.",
+    "mobile_first": "Stack everything on mobile. Hide sidebar behind a hamburger menu on mobile (Shadcn Sheet)."
+  },
+  "motion": {
+    "micro_interactions": "Hover states on all buttons/links (`transition-colors duration-200`). Staggered list entrances.",
+    "page_transitions": "Subtle fade in (`opacity-0` to `opacity-100`)."
+  },
+  "accessibility": {
+    "contrast": "Ensure text over pastel backgrounds uses dark colors (`#2E4F32` or `#1A2E1E`). NEVER use white text on light pastel colors.",
+    "focus": "Visible focus rings on all inputs/buttons.",
+    "test_ids": "Add `data-testid` to all interactive elements."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "category": "auth_background",
+        "url": "https://images.unsplash.com/photo-1713959989861-2425c95e9777?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwyfHxpbmRvbmVzaWFuJTIwcnVyYWwlMjBsYW5kc2NhcGV8ZW58MHx8fHwxNzg3NzY5NTQyfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Indonesian rural landscape with mountains"
+      },
+      {
+        "category": "unit_pembibitan_domba",
+        "url": "https://images.unsplash.com/photo-1614183654058-0bac05af5ab0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODh8MHwxfHNlYXJjaHwyfHxzaGVlcCUyMGZhcm18ZW58MHx8fHwxNzg3NzY5NTQyfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Sheep farm"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install required dependencies: `yarn add @phosphor-icons/react recharts framer-motion`.",
+    "Use standard HTML structure but leverage Tailwind for styling.",
+    "Create a layout wrapper with a fixed sidebar (desktop) and bottom nav/hamburger (mobile).",
+    "For the main dashboard, build a grid showing 6 business units summary and a main chart area.",
+    "Ensure the UI uses the specified pastel palette while maintaining high contrast for text.",
+    "Use `.js` and `.jsx` files instead of `.tsx`."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not use generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Do NOT apply universal transition (e.g., `transition: all`).",
+    "Do NOT center align the app container.",
+    "Always use modern button styles (pill-shaped or rounded-lg).",
+    "Never use AI assistant Emoji characters for icons.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Never use placeholder URLs (via.placeholder.com, etc.).",
+    "Prioritize using pre-existing components from src/components/ui.",
+    "DO NOT use complete `transparent` background in header, overlays, any surface that has content under it."
+  ]
+}

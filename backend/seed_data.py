@@ -1,0 +1,156 @@
+"""Initial seed data: Chart of Accounts (Kepmendesa 136/2022) + 6 Unit Usaha + default users."""
+
+# Chart of Accounts BUMDES sesuai Kepmendesa PDTT No 136 Tahun 2022
+# code, name, category, subcategory, normal_balance
+CHART_OF_ACCOUNTS = [
+    # ============ ASET (1) ============
+    ("1-1101", "Kas", "aset", "aset_lancar", "debit"),
+    ("1-1102", "Bank", "aset", "aset_lancar", "debit"),
+    ("1-1103", "Piutang Usaha", "aset", "aset_lancar", "debit"),
+    ("1-1104", "Piutang Mitra Peternak", "aset", "aset_lancar", "debit"),
+    ("1-1105", "Piutang Bagi Hasil", "aset", "aset_lancar", "debit"),
+    ("1-1106", "Persediaan Barang Dagangan", "aset", "aset_lancar", "debit"),
+    ("1-1107", "Persediaan Domba Bibit", "aset", "aset_lancar", "debit"),
+    ("1-1108", "Persediaan Bibit Ikan", "aset", "aset_lancar", "debit"),
+    ("1-1109", "Modal Yang Dititipkan ke Mitra", "aset", "aset_lancar", "debit"),
+    ("1-1110", "Uang Muka & Beban Dibayar Dimuka", "aset", "aset_lancar", "debit"),
+    ("1-1201", "Kendaraan Angkutan", "aset", "aset_tetap", "debit"),
+    ("1-1202", "Peralatan Kolam Bioflok", "aset", "aset_tetap", "debit"),
+    ("1-1203", "Peralatan Toko", "aset", "aset_tetap", "debit"),
+    ("1-1204", "Peralatan Kantor", "aset", "aset_tetap", "debit"),
+    ("1-1205", "Bangunan Kandang & Toko", "aset", "aset_tetap", "debit"),
+    ("1-1299", "Akumulasi Penyusutan Aset Tetap", "aset", "aset_tetap", "kredit"),
+
+    # ============ KEWAJIBAN (2) ============
+    ("2-1101", "Utang Usaha", "kewajiban", "kewajiban_jangka_pendek", "kredit"),
+    ("2-1102", "Utang Bagi Hasil Pengelola", "kewajiban", "kewajiban_jangka_pendek", "kredit"),
+    ("2-1103", "Utang Bagi Hasil Mitra", "kewajiban", "kewajiban_jangka_pendek", "kredit"),
+    ("2-1104", "Beban Yang Masih Harus Dibayar", "kewajiban", "kewajiban_jangka_pendek", "kredit"),
+    ("2-2101", "Utang Jangka Panjang", "kewajiban", "kewajiban_jangka_panjang", "kredit"),
+
+    # ============ EKUITAS (3) ============
+    ("3-1101", "Modal Penyertaan Desa", "ekuitas", "modal", "kredit"),
+    ("3-1102", "Modal Penyertaan Masyarakat", "ekuitas", "modal", "kredit"),
+    ("3-2101", "Laba Ditahan", "ekuitas", "saldo_laba", "kredit"),
+    ("3-2102", "Laba/Rugi Tahun Berjalan", "ekuitas", "saldo_laba", "kredit"),
+    ("3-2103", "Cadangan Umum", "ekuitas", "saldo_laba", "kredit"),
+    ("3-2104", "Dana Sosial & CSR", "ekuitas", "saldo_laba", "kredit"),
+
+    # ============ PENDAPATAN (4) - per unit usaha ============
+    ("4-1101", "Pendapatan Unit Pembibitan Domba", "pendapatan", "pendapatan_operasional", "kredit"),
+    ("4-1102", "Pendapatan Unit Ikan Mujaer Bioflok", "pendapatan", "pendapatan_operasional", "kredit"),
+    ("4-1103", "Pendapatan Unit Sewa Angkutan", "pendapatan", "pendapatan_operasional", "kredit"),
+    ("4-1104", "Pendapatan Unit Perdagangan & Produksi", "pendapatan", "pendapatan_operasional", "kredit"),
+    ("4-1105", "Pendapatan Unit Toko Offline", "pendapatan", "pendapatan_operasional", "kredit"),
+    ("4-1106", "Pendapatan Unit Toko Online", "pendapatan", "pendapatan_operasional", "kredit"),
+    ("4-2101", "Pendapatan Lain-lain", "pendapatan", "pendapatan_non_operasional", "kredit"),
+    ("4-2102", "Pendapatan Bunga Bank", "pendapatan", "pendapatan_non_operasional", "kredit"),
+
+    # ============ BEBAN (5) ============
+    ("5-1101", "Beban Bagi Hasil Mitra Peternak Domba", "beban", "beban_operasional", "debit"),
+    ("5-1102", "Beban Bagi Hasil Mitra Peternak Ikan", "beban", "beban_operasional", "debit"),
+    ("5-1103", "Beban Bagi Hasil Pengelola Unit Usaha", "beban", "beban_operasional", "debit"),
+    ("5-1201", "Beban BBM & Transportasi Monitoring", "beban", "beban_operasional", "debit"),
+    ("5-1202", "Beban BBM Angkutan Barang", "beban", "beban_operasional", "debit"),
+    ("5-1203", "Beban ATK", "beban", "beban_operasional", "debit"),
+    ("5-1204", "Beban Packing", "beban", "beban_operasional", "debit"),
+    ("5-1205", "Beban Pickup Ekspedisi", "beban", "beban_operasional", "debit"),
+    ("5-1206", "Beban Gaji Karyawan Toko Online", "beban", "beban_operasional", "debit"),
+    ("5-1207", "Beban Listrik", "beban", "beban_operasional", "debit"),
+    ("5-1208", "Beban PDAM (Air)", "beban", "beban_operasional", "debit"),
+    ("5-1209", "Beban Wifi/Internet", "beban", "beban_operasional", "debit"),
+    ("5-1210", "Beban Pakan Ternak", "beban", "beban_operasional", "debit"),
+    ("5-1211", "Beban Pemeliharaan Kandang & Kolam", "beban", "beban_operasional", "debit"),
+    ("5-1212", "Harga Pokok Penjualan (HPP)", "beban", "beban_operasional", "debit"),
+    ("5-2101", "Beban Administrasi & Umum", "beban", "beban_administrasi", "debit"),
+    ("5-2102", "Beban Penyusutan Aset Tetap", "beban", "beban_administrasi", "debit"),
+    ("5-2103", "Beban Rapat & Konsumsi", "beban", "beban_administrasi", "debit"),
+    ("5-3101", "Beban Pajak", "beban", "beban_lain_lain", "debit"),
+]
+
+UNIT_USAHA_SEED = [
+    ("UU01", "Pembibitan Domba Garut",
+     "Kerjasama dengan ~15 mitra peternak domba di desa. Pengelola monitoring bulanan.",
+     "Anakan dijual: 30% mitra, 70% BUMDES. Akumulasi 70% dikurangi op-cost, sisa dibagi 30% pengelola / 70% BUMDES."),
+    ("UU02", "Ternak Ikan Mujaer Bioflok",
+     "Kerjasama dengan ~24 mitra peternak ikan mujaer sistem bioflok.",
+     "Mitra setor Rp3.000/kg ikan panen. Akumulasi dikurangi op-cost, sisa dibagi 30% pengelola / 70% BUMDES."),
+    ("UU03", "Sewa Kendaraan Angkutan Barang",
+     "Antar barang dari penjual online (affiliasi) dan pihak lain di lingkup Kec. Pangandaran.",
+     "Uang jasa dikurangi op-cost BBM, sisa dibagi 30% pengelola / 70% BUMDES."),
+    ("UU04", "Perdagangan & Produksi Barang Jadi",
+     "Kerjasama ~15 mitra usaha (tukang kayu, pengrajin bambu, sapu lidi/ijuk, tanaman hias, supplier makanan, produk rumah tangga, penjual online).",
+     "Mitra dititipi modal 1-17 juta, setor imbal hasil 3%/bulan. Akumulasi dibagi 30% pengelola / 70% BUMDES."),
+    ("UU05", "Toko Offline BUMDES",
+     "Menyediakan produk untuk masyarakat & penjual online.",
+     "Laba bersih dikurangi op-cost ATK, sisa dibagi 30% pengelola / 70% BUMDES."),
+    ("UU06", "Toko Online BUMDES",
+     "Kanal digital: Shopee, Tokopedia, TikTokShop, Lazada, Blibli.",
+     "Laba bersih dikurangi op-cost (ATK, packing, pickup, gaji, listrik, PDAM, wifi), sisa dibagi 30% pengelola / 70% BUMDES."),
+]
+
+# Transaction types dengan mapping default debit/credit account
+# Note: pengelola-visible types have specific unit usaha prepending
+TRANSACTION_TYPES = [
+    # PENDAPATAN
+    {"code": "penerimaan_bagi_hasil_domba", "name": "Penerimaan Bagi Hasil Anakan Domba (dari mitra)",
+     "debit": "1-1101", "credit": "4-1101"},
+    {"code": "penerimaan_setoran_ikan", "name": "Penerimaan Setoran Rp3.000/kg Ikan (dari mitra)",
+     "debit": "1-1101", "credit": "4-1102"},
+    {"code": "penerimaan_jasa_angkutan", "name": "Penerimaan Uang Jasa Angkutan",
+     "debit": "1-1101", "credit": "4-1103"},
+    {"code": "penerimaan_imbal_hasil_mitra", "name": "Penerimaan Imbal Hasil 3% Mitra Dagang",
+     "debit": "1-1101", "credit": "4-1104"},
+    {"code": "penjualan_toko_offline", "name": "Penjualan Toko Offline",
+     "debit": "1-1101", "credit": "4-1105"},
+    {"code": "penjualan_toko_online", "name": "Penjualan Toko Online (marketplace)",
+     "debit": "1-1102", "credit": "4-1106"},
+    {"code": "pendapatan_lain", "name": "Pendapatan Lain-lain",
+     "debit": "1-1101", "credit": "4-2101"},
+
+    # BEBAN
+    {"code": "beban_bbm_monitoring", "name": "Beban BBM Monitoring Pengelola",
+     "debit": "5-1201", "credit": "1-1101"},
+    {"code": "beban_bbm_angkutan", "name": "Beban BBM Angkutan Barang",
+     "debit": "5-1202", "credit": "1-1101"},
+    {"code": "beban_atk", "name": "Beban ATK",
+     "debit": "5-1203", "credit": "1-1101"},
+    {"code": "beban_packing", "name": "Beban Packing",
+     "debit": "5-1204", "credit": "1-1101"},
+    {"code": "beban_pickup", "name": "Beban Pickup Ekspedisi",
+     "debit": "5-1205", "credit": "1-1101"},
+    {"code": "beban_gaji", "name": "Beban Gaji Karyawan Toko Online",
+     "debit": "5-1206", "credit": "1-1101"},
+    {"code": "beban_listrik", "name": "Beban Listrik",
+     "debit": "5-1207", "credit": "1-1101"},
+    {"code": "beban_pdam", "name": "Beban PDAM (Air)",
+     "debit": "5-1208", "credit": "1-1101"},
+    {"code": "beban_wifi", "name": "Beban Wifi/Internet",
+     "debit": "5-1209", "credit": "1-1101"},
+    {"code": "beban_pakan", "name": "Beban Pakan Ternak",
+     "debit": "5-1210", "credit": "1-1101"},
+    {"code": "beban_pemeliharaan", "name": "Beban Pemeliharaan Kandang/Kolam",
+     "debit": "5-1211", "credit": "1-1101"},
+    {"code": "hpp_toko", "name": "HPP Barang Terjual (Toko)",
+     "debit": "5-1212", "credit": "1-1106"},
+    {"code": "beban_admin", "name": "Beban Administrasi & Umum",
+     "debit": "5-2101", "credit": "1-1101"},
+
+    # BAGI HASIL
+    {"code": "setoran_pengelola_ke_bumdes", "name": "Setoran Bagi Hasil (70%) Pengelola ke BUMDES",
+     "debit": "1-1101", "credit": "2-1102"},
+    {"code": "pembayaran_bagi_hasil_pengelola", "name": "Pembayaran Bagi Hasil (30%) ke Pengelola",
+     "debit": "5-1103", "credit": "1-1101"},
+
+    # MODAL & LAINNYA
+    {"code": "modal_masuk", "name": "Penyertaan Modal Desa",
+     "debit": "1-1101", "credit": "3-1101"},
+    {"code": "penitipan_modal_mitra", "name": "Penitipan Modal ke Mitra Usaha",
+     "debit": "1-1109", "credit": "1-1101"},
+    {"code": "pengembalian_modal_mitra", "name": "Pengembalian Modal dari Mitra",
+     "debit": "1-1101", "credit": "1-1109"},
+    {"code": "pembelian_persediaan", "name": "Pembelian Persediaan Barang Dagang",
+     "debit": "1-1106", "credit": "1-1101"},
+    {"code": "pembelian_aset_tetap", "name": "Pembelian Aset Tetap",
+     "debit": "1-1204", "credit": "1-1101"},
+]
