@@ -51,15 +51,18 @@ class UserRole:
     DIREKTUR = "direktur"
     BENDAHARA = "bendahara"
     PENGELOLA = "pengelola"
+    PENGAWAS = "pengawas"
+    PENASIHAT = "penasihat"
 
 
 class User(BaseDocument):
     email: EmailStr
     username: str
     name: str
-    role: str  # admin | direktur | bendahara | pengelola
+    role: str  # admin | direktur | bendahara | pengelola | pengawas | penasihat
     unit_usaha_id: Optional[str] = None  # for pengelola only
     password_hash: str
+    plain_password: Optional[str] = None  # admin-visible only, for password recovery
     active: bool = True
     created_at: datetime = Field(default_factory=now_utc)
 
@@ -85,7 +88,12 @@ class UserOut(BaseModel):
     name: str
     role: str
     unit_usaha_id: Optional[str] = None
+    plain_password: Optional[str] = None  # only included when admin views
     active: bool = True
+
+
+class PasswordResetRequest(BaseModel):
+    new_password: str
 
 
 # ============ UNIT USAHA ============

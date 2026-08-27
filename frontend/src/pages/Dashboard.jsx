@@ -128,6 +128,20 @@ export default function Dashboard() {
                   <td className="num font-semibold" style={{ color: u.laba >= 0 ? "#2E4F32" : "#E76F51" }}>{fmtRp(u.laba)}</td>
                 </tr>
               ))}
+              {data.unit_summaries.length > 0 && (() => {
+                const totP = data.unit_summaries.reduce((s, u) => s + (u.pendapatan || 0), 0);
+                const totB = data.unit_summaries.reduce((s, u) => s + (u.beban || 0), 0);
+                const totL = data.unit_summaries.reduce((s, u) => s + (u.laba || 0), 0);
+                return (
+                  <tr data-testid="unit-total-row" style={{ background: "#D4E09B" }}>
+                    <td></td>
+                    <td className="font-bold" style={{ color: "#2E4F32" }}>TOTAL 6 UNIT USAHA</td>
+                    <td className="num font-bold tabular-nums" style={{ color: "#2E4F32" }}>{fmtRp(totP)}</td>
+                    <td className="num font-bold tabular-nums" style={{ color: "#2E4F32" }}>{fmtRp(totB)}</td>
+                    <td className="num font-bold tabular-nums" style={{ color: totL >= 0 ? "#2E4F32" : "#E76F51" }}>{fmtRp(totL)}</td>
+                  </tr>
+                );
+              })()}
             </tbody>
           </table>
         </div>

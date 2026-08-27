@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 3 focused test on RBAC hardening patch (require_not_readonly() on POST /transactions and POST /mitra) and UsersPage forbidden UX. Backend: 12/12 new pytest tests PASS - pengawas & penasihat get 403 on POST /transactions and POST /mitra (with Indonesian 'read-only' message), admin/direktur/bendahara still POST successfully, reports still GET-able for readonly roles. Frontend: 8/8 Playwright checks PASS - direktur navigating to /users now sees data-testid='users-page-forbidden' ('Akses Ditolak' panel) instead of silent redirect, admin still sees users-page, pengawas & penasihat see disabled btn-new-tx and btn-new-mitra with opacity-50, bendahara buttons remain enabled.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_readonly.py",
+    "/app/test_reports/pytest/pytest_iter3.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "require_not_readonly() is a factory that returns a closure — Depends(require_not_readonly()) works but is slightly unusual; consider making it a plain async function so usage becomes Depends(require_not_readonly) for consistency with require_roles(...).",
+    "Iteration 2 comments still stand: server.py ~917 lines should be split into routers; plain_password DB storage documented as intentional but risky.",
+    "Consider adding require_not_readonly() (or WRITE_LEVEL guard) on other mutating endpoints that currently only depend on get_current_user_payload if any remain (audit: POST /revenue-share, /accounts, /unit-usaha already use require_roles; POST /transactions & /mitra now hardened — coverage looks complete)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter3_readonly.py (new - 12 tests: readonly-blocked + write-role-regression + reports still readable)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin/admin123, budianto/direktur123, riska/bendahara123 (all intact). Temporary TEST_ui_pengawas, TEST_ui_penasihat, TEST_pengawas_it3, TEST_penasihat_it3 created & deleted during run.",
+  "seed_data_creation": "All TEST_ prefixed users cleaned up by fixture teardown / Playwright cleanup. Also cleaned 3 leftover 'TEST_Mitra1' rows from earlier iterations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 3 patch is complete and verified. Key backend dependency: require_not_readonly() at /app/backend/server.py:47 - blocks pengawas/penasihat on POST /transactions and POST /mitra with 403 detail 'Role Anda hanya bisa membaca...'. Frontend: /users route guard removed in App.js so UsersPage.jsx internal isAdmin check renders data-testid='users-page-forbidden' for non-admins. Transactions.jsx and MitraPage.jsx use can(user, admin,direktur,bendahara,pengelola) to disable btn-new-tx/btn-new-mitra with opacity-50 for readonly roles.",
+  "rca_of_the_issue": "N/A - patch verified working. Prior iteration-2 gap (readonly roles able to POST tx/mitra) is closed. Prior UX gap (silent redirect on /users) is closed."
+}

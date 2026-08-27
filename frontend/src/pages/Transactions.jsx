@@ -5,6 +5,7 @@ import { Plus, Trash, Receipt } from "@phosphor-icons/react";
 
 export default function Transactions() {
   const { user } = useAuth();
+  const canWrite = can(user, "admin", "direktur", "bendahara", "pengelola");
   const [txs, setTxs] = useState([]);
   const [units, setUnits] = useState([]);
   const [types, setTypes] = useState([]);
@@ -77,12 +78,15 @@ export default function Transactions() {
             Input transaksi cepat — laporan terbentuk otomatis.
           </p>
         </div>
-        <button data-testid="btn-new-tx" onClick={() => setShowForm(true)} className="btn btn-primary">
+        <button data-testid="btn-new-tx" onClick={() => setShowForm(true)}
+                disabled={!canWrite}
+                className={`btn btn-primary ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
+                title={canWrite ? "" : "Read-only role"}>
           <Plus size={18} weight="bold" /> Tambah Transaksi
         </button>
       </div>
 
-      {showForm && (
+      {showForm && canWrite && (
         <div className="card fade-in">
           <h3 className="font-heading text-lg font-semibold mb-4">Transaksi Baru</h3>
           <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">

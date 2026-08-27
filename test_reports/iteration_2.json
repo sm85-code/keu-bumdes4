@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 2 full-stack test of BUMDES app after 4 new features: (1) Dashboard TOTAL row, (2) Revenue-share DELETE per row, (3) Users admin-only + password reveal + reset + new roles pengawas/penasihat, (4) PDF word-wrap. Backend: 16/16 new + 33/33 regression = 49/49 pytest PASS (parallel worker race between password-reset test and users-list test is a test-only false positive; each file passes individually). Frontend: all critical UI flows verified via Playwright — dashboard TOTAL row, revshare create+delete, users reveal (••• -> admin123), reset password for riska (+login with new pw + restore original), direktur/pengawas sidebar RBAC, TEST_pengawas1 created/logged-in with correct navigation, WRITE buttons disabled for pengawas.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "App.js /users route", "issue": "Manual navigation to /users as direktur/bendahara/pengawas/penasihat is redirected to '/' by the Protected route guard (roles=['admin']) instead of rendering the intended UsersPage 'users-page-forbidden' fallback. The forbidden panel in UsersPage.jsx is currently dead code. If the desired UX is to show 'Akses Ditolak' on the URL (as stated in the review request), remove the `roles` prop from the /users <Protected> in App.js and rely on the internal isAdmin check in UsersPage. Otherwise this is functionally fine (still blocks non-admin).", "selector": "data-testid=users-page-forbidden", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "COAPage / MitraPage / RevenueShare / UsersPage (any <select> with dynamic <option>)", "issues": ["Recurring dev-mode React hydration warning: '<span> cannot be a child of <option>'. Caused by visual-editing dev-instrumentation wrapping dynamic option text in a <span display:contents>. Not app code bug, stripped in production build. Same finding as iteration 1."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_new_features.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional/LOW) Decide whether /users direct URL should show forbidden panel or silently redirect. Currently route-guard redirects to '/', so UsersPage.jsx forbidden div is unreachable."
+  ],
+  "critical_code_review_comments": [
+    "server.py is still ~900 lines - split into routers (auth, users, transactions, reports, pdf) for maintainability.",
+    "plain_password stored in DB is a security concern (documented as intentional for admin recovery). At minimum enforce https-only + encrypt-at-rest, and document risk clearly.",
+    "PDF endpoints share table-building boilerplate — extract a helper `build_financial_table(rows, section_indices, total_index, col_widths)` to reduce duplication.",
+    "create_transaction and create_mitra do not restrict WRITE_LEVEL — pengawas/penasihat can currently POST transactions (only revenue-share/accounts/unit-usaha reject). Add `require_roles(*WRITE_LEVEL)` on POST /transactions and POST /mitra if pengawas/penasihat should be strictly read-only.",
+    "App.js /users route uses `roles=['admin']` guard which makes UsersPage's `users-page-forbidden` panel dead code — either remove the guard or remove the fallback."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py (new - 16 tests covering all iteration 2 features)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin/admin123, budianto/direktur123, riska/bendahara123 (riska password reset+restored during test — verified back to bendahara123).",
+  "seed_data_creation": "Backend cleanup fixture removes all TEST_ prefixed users at end of test_new_features.py. Frontend test creates and cleans up TEST_pengawas1.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New testids added in iteration 2: unit-total-row (Dashboard), del-rs-<id> (RevenueShare row delete), users-page (admin), users-page-forbidden (currently unreachable via route guard), btn-toggle-reveal (global password reveal), pw-<userId> (per-row password cell), btn-reset-<userId> (per-row reset icon), reset-pw-form (reset modal), reset-pw-input, btn-confirm-reset, btn-del-<userId>. Backend RBAC: WRITE_LEVEL={admin,direktur,bendahara}, READ_LEVEL adds pengawas+penasihat. Note transactions/mitra POST are NOT gated by WRITE_LEVEL yet (dependency on get_current_user_payload only).",
+  "rca_of_the_issue": "N/A - no bugs found. Minor observation about /users route being dual-guarded (route + component) leaving the component-level forbidden UI as dead code."
+}

@@ -13,10 +13,10 @@ import MitraPage from "@/pages/MitraPage";
 import COAPage from "@/pages/COAPage";
 import UsersPage from "@/pages/UsersPage";
 
-const ROLES_REPORTS = ["admin", "direktur", "bendahara"];
-const ROLES_REVSHARE = ["admin", "direktur", "bendahara"];
-const ROLES_COA = ["admin", "direktur", "bendahara"];
-const ROLES_USERS = ["admin", "direktur"];
+const ROLES_REPORTS = ["admin", "direktur", "bendahara", "pengawas", "penasihat"];
+const ROLES_REVSHARE = ["admin", "direktur", "bendahara", "pengawas", "penasihat"];
+const ROLES_COA = ["admin", "direktur", "bendahara", "pengawas", "penasihat"];
+const ROLES_USERS = ["admin"];
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
@@ -42,7 +42,7 @@ function App() {
             <Route path="/unit-usaha" element={<Protected><UnitUsahaPage /></Protected>} />
             <Route path="/mitra" element={<Protected><MitraPage /></Protected>} />
             <Route path="/accounts" element={<Protected roles={ROLES_COA}><COAPage /></Protected>} />
-            <Route path="/users" element={<Protected roles={ROLES_USERS}><UsersPage /></Protected>} />
+            <Route path="/users" element={<Protected><UsersPage /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>

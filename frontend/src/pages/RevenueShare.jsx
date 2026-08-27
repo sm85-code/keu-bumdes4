@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import api, { fmtRp } from "@/lib/api";
-import { Plus, HandCoins } from "@phosphor-icons/react";
+import { useAuth, can } from "@/lib/auth";
+import { Plus, HandCoins, Trash } from "@phosphor-icons/react";
 
 export default function RevenueShare() {
+  const { user } = useAuth();
+  const canWrite = can(user, "admin", "direktur", "bendahara");
   const [list, setList] = useState([]);
   const [units, setUnits] = useState([]);
   const [show, setShow] = useState(false);
@@ -29,6 +32,12 @@ export default function RevenueShare() {
     setShow(false); load();
   };
 
+  const del = async (id) => {
+    if (!window.confirm("Hapus data bagi hasil ini?")) return;
+    await api.delete(`/revenue-share/${id}`);
+    load();
+  };
+
   const preview = (form.gross_revenue && !isNaN(form.gross_revenue)) ? {
     net: (parseFloat(form.gross_revenue) - parseFloat(form.operational_cost || 0)),
     mgr: (parseFloat(form.gross_revenue) - parseFloat(form.operational_cost || 0)) * 0.3,
@@ -45,12 +54,15 @@ export default function RevenueShare() {
             30% pengelola, 70% BUMDES — otomatis setelah dikurangi biaya operasional.
           </p>
         </div>
-        <button data-testid="btn-new-rs" onClick={() => setShow(true)} className="btn btn-primary">
+        <button data-testid="btn-new-rs" onClick={() => setShow(true)}
+                disabled={!canWrite}
+                className={`btn btn-primary ${!canWrite ? "opacity-50" : ""}`}
+                title={canWrite ? "" : "Hanya Admin/Direktur/Bendahara"}>
           <Plus size={18} /> Hitung Bagi Hasil
         </button>
       </div>
 
-      {show && (
+      {show && canWrite && (
         <div className="card fade-in">
           <h3 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
             <HandCoins size={20} weight="duotone" color="#2E4F32" /> Kalkulator Bagi Hasil
@@ -104,11 +116,12 @@ export default function RevenueShare() {
               <th className="num">Pendapatan</th><th className="num">Op. Cost</th>
               <th className="num">Laba Bersih</th>
               <th className="num">30% Pengelola</th><th className="num">70% BUMDES</th>
+              {canWrite && <th></th>}
             </tr>
           </thead>
           <tbody>
             {list.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-8" style={{ color: "var(--text-muted)" }}>Belum ada perhitungan.</td></tr>
+              <tr><td colSpan={canWrite ? 8 : 7} className="text-center py-8" style={{ color: "var(--text-muted)" }}>Belum ada perhitungan.</td></tr>
             ) : list.map(rs => {
               const unit = units.find(u => u.id === rs.unit_usaha_id);
               return (
@@ -120,6 +133,14 @@ export default function RevenueShare() {
                   <td className="num font-semibold">{fmtRp(rs.net_revenue)}</td>
                   <td className="num" style={{ color: "#4a2760" }}>{fmtRp(rs.manager_share)}</td>
                   <td className="num font-semibold" style={{ color: "#2E4F32" }}>{fmtRp(rs.bumdes_share)}</td>
+                  {canWrite && (
+                    <td>
+                      <button data-testid={`del-rs-${rs.id}`} onClick={() => del(rs.id)}
+                              className="p-1.5 rounded-md hover:bg-red-50" title="Hapus">
+                        <Trash size={16} color="#E76F51" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}

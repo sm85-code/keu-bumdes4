@@ -46,4 +46,6 @@ export const ROLE_LABELS = {
   direktur: "Direktur",
   bendahara: "Bendahara",
   pengelola: "Pengelola Unit",
+  pengawas: "Pengawas",
+  penasihat: "Penasihat",
 };

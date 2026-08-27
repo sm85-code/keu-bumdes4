@@ -27,12 +27,18 @@ export default function MitraPage() {
   const del = async (id) => { if (window.confirm("Hapus mitra?")) { await api.delete(`/mitra/${id}`); load(); } };
 
   const canDel = ["admin", "direktur", "bendahara"].includes(user.role);
+  const canAdd = ["admin", "direktur", "bendahara", "pengelola"].includes(user.role);
 
   return (
     <div className="space-y-6" data-testid="mitra-page">
       <div className="flex justify-between items-start gap-4 flex-wrap">
         <div><p className="label mb-1">Kemitraan</p><h1 className="font-heading text-3xl font-bold">Data Mitra Usaha</h1></div>
-        <button data-testid="btn-new-mitra" onClick={() => setShow(true)} className="btn btn-primary"><Plus size={16} /> Tambah Mitra</button>
+        <button data-testid="btn-new-mitra" onClick={() => setShow(true)}
+                disabled={!canAdd}
+                className={`btn btn-primary ${!canAdd ? "opacity-50 cursor-not-allowed" : ""}`}
+                title={canAdd ? "" : "Read-only role"}>
+          <Plus size={16} /> Tambah Mitra
+        </button>
       </div>
 
       <div className="card p-4">
@@ -43,7 +49,7 @@ export default function MitraPage() {
         </select>
       </div>
 
-      {show && (
+      {show && canAdd && (
         <div className="card fade-in">
           <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div><label className="label">Unit Usaha</label>

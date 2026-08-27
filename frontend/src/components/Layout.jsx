@@ -7,16 +7,19 @@ import {
   BookOpenText, SignOut, List, X, HandCoins, Books, Calculator,
 } from "@phosphor-icons/react";
 
+const READ_ONLY = ["admin", "direktur", "bendahara", "pengawas", "penasihat"];
+const READ_MOST = ["admin", "direktur", "bendahara", "pengelola", "pengawas", "penasihat"];
+
 const NAV = [
-  { to: "/", label: "Dashboard", icon: House, roles: ["admin", "direktur", "bendahara", "pengelola"] },
-  { to: "/transactions", label: "Transaksi", icon: Receipt, roles: ["admin", "direktur", "bendahara", "pengelola"] },
-  { to: "/reports", label: "Laporan Keuangan", icon: ChartLine, roles: ["admin", "direktur", "bendahara"] },
-  { to: "/reports/per-unit", label: "Laporan Per Unit", icon: ChartBar, roles: ["admin", "direktur", "bendahara", "pengelola"] },
-  { to: "/revenue-share", label: "Bagi Hasil 30/70", icon: HandCoins, roles: ["admin", "direktur", "bendahara"] },
-  { to: "/unit-usaha", label: "Unit Usaha", icon: Storefront, roles: ["admin", "direktur", "bendahara", "pengelola"] },
-  { to: "/mitra", label: "Data Mitra", icon: UsersThree, roles: ["admin", "direktur", "bendahara", "pengelola"] },
-  { to: "/accounts", label: "Kode Akun (COA)", icon: Books, roles: ["admin", "direktur", "bendahara"] },
-  { to: "/users", label: "Kelola Pengguna", icon: UsersThree, roles: ["admin", "direktur"] },
+  { to: "/", label: "Dashboard", icon: House, roles: READ_MOST },
+  { to: "/transactions", label: "Transaksi", icon: Receipt, roles: READ_MOST },
+  { to: "/reports", label: "Laporan Keuangan", icon: ChartLine, roles: READ_ONLY },
+  { to: "/reports/per-unit", label: "Laporan Per Unit", icon: ChartBar, roles: READ_MOST },
+  { to: "/revenue-share", label: "Bagi Hasil 30/70", icon: HandCoins, roles: READ_ONLY },
+  { to: "/unit-usaha", label: "Unit Usaha", icon: Storefront, roles: READ_MOST },
+  { to: "/mitra", label: "Data Mitra", icon: UsersThree, roles: READ_MOST },
+  { to: "/accounts", label: "Kode Akun (COA)", icon: Books, roles: READ_ONLY },
+  { to: "/users", label: "Kelola Pengguna", icon: UsersThree, roles: ["admin"] },
 ];
 
 export default function Layout({ children }) {

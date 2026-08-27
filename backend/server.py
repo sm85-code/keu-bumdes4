@@ -23,7 +23,7 @@ from reportlab.platypus import (
 )
 
 from models import (
-    User, UserCreate, UserLogin, UserOut, UserRole,
+    User, UserCreate, UserLogin, UserOut, UserRole, PasswordResetRequest,
     UnitUsaha, UnitUsahaCreate,
     Mitra, MitraCreate,
     Account, AccountCreate,
@@ -36,6 +36,21 @@ from auth import (
     get_current_user_payload, require_roles,
 )
 from seed_data import CHART_OF_ACCOUNTS, UNIT_USAHA_SEED, TRANSACTION_TYPES
+
+# Roles that can read all reports/data like Direktur (read-only for pengawas/penasihat)
+READ_LEVEL = ("admin", "direktur", "bendahara", "pengawas", "penasihat")
+WRITE_LEVEL = ("admin", "direktur", "bendahara")
+ADMIN_LEVEL = ("admin",)
+READONLY_ROLES = ("pengawas", "penasihat")
+
+
+def require_not_readonly():
+    """Dependency that blocks pengawas & penasihat from mutating data."""
+    async def checker(payload: dict = Depends(get_current_user_payload)):
+        if payload.get("role") in READONLY_ROLES:
+            raise HTTPException(status_code=403, detail="Role Anda hanya bisa membaca, tidak bisa mengubah data")
+        return payload
+    return checker
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -107,10 +122,18 @@ async def seed_startup():
         for u in default_users:
             usr = User(
                 email=u["email"], username=u["username"], name=u["name"],
-                role=u["role"], password_hash=hash_password(u["password"])
+                role=u["role"], password_hash=hash_password(u["password"]),
+                plain_password=u["password"],
             )
             await db.users.insert_one(usr.to_mongo())
         logger.info("Seeded default users (admin/direktur/bendahara)")
+
+    # backfill plain_password for existing default users (idempotent)
+    for uname, pwd in [("admin", "admin123"), ("budianto", "direktur123"), ("riska", "bendahara123")]:
+        await db.users.update_one(
+            {"username": uname, "$or": [{"plain_password": {"$exists": False}}, {"plain_password": None}]},
+            {"$set": {"plain_password": pwd}}
+        )
 
 
 @app.on_event("shutdown")
@@ -124,7 +147,8 @@ async def register(payload: UserCreate, admin: dict = Depends(require_roles("adm
     exists = await db.users.find_one({"$or": [{"email": payload.email}, {"username": payload.username}]})
     if exists:
         raise HTTPException(status_code=400, detail="Email atau username sudah terdaftar")
-    if payload.role not in (UserRole.ADMIN, UserRole.DIREKTUR, UserRole.BENDAHARA, UserRole.PENGELOLA):
+    if payload.role not in (UserRole.ADMIN, UserRole.DIREKTUR, UserRole.BENDAHARA,
+                            UserRole.PENGELOLA, UserRole.PENGAWAS, UserRole.PENASIHAT):
         raise HTTPException(status_code=400, detail="Role tidak valid")
     if payload.role == UserRole.PENGELOLA and not payload.unit_usaha_id:
         raise HTTPException(status_code=400, detail="Pengelola harus memiliki unit_usaha_id")
@@ -132,6 +156,7 @@ async def register(payload: UserCreate, admin: dict = Depends(require_roles("adm
         email=payload.email, username=payload.username, name=payload.name,
         role=payload.role, unit_usaha_id=payload.unit_usaha_id,
         password_hash=hash_password(payload.password),
+        plain_password=payload.password,
     )
     await db.users.insert_one(user.to_mongo())
     return UserOut(**user.model_dump())
@@ -160,9 +185,24 @@ async def me(payload: dict = Depends(get_current_user_payload)):
 
 
 @api.get("/users", response_model=List[UserOut])
-async def list_users(admin: dict = Depends(require_roles("admin", "direktur"))):
+async def list_users(admin: dict = Depends(require_roles("admin"))):
     docs = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(200)
     return [UserOut(**d) for d in docs]
+
+
+@api.post("/users/{user_id}/reset-password")
+async def reset_password(user_id: str, payload: PasswordResetRequest,
+                         admin: dict = Depends(require_roles("admin"))):
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password minimal 6 karakter")
+    r = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"password_hash": hash_password(payload.new_password),
+                  "plain_password": payload.new_password}}
+    )
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    return {"ok": True}
 
 
 @api.delete("/users/{user_id}")
@@ -201,7 +241,7 @@ async def list_mitra(unit_usaha_id: Optional[str] = None, payload: dict = Depend
 
 
 @api.post("/mitra", response_model=Mitra)
-async def create_mitra(payload: MitraCreate, dep: dict = Depends(get_current_user_payload)):
+async def create_mitra(payload: MitraCreate, dep: dict = Depends(require_not_readonly())):
     user = await user_from_payload(dep)
     unit_id = payload.unit_usaha_id
     if user.role == UserRole.PENGELOLA:
@@ -267,7 +307,7 @@ async def list_transactions(
 
 
 @api.post("/transactions")
-async def create_transaction(payload: TransactionCreate, dep: dict = Depends(get_current_user_payload)):
+async def create_transaction(payload: TransactionCreate, dep: dict = Depends(require_not_readonly())):
     user = await user_from_payload(dep)
     # Pengelola force unit
     unit_id = payload.unit_usaha_id
@@ -286,7 +326,7 @@ async def delete_transaction(tx_id: str, _: dict = Depends(require_roles("admin"
 
 # ==================== REVENUE SHARE (BAGI HASIL) ====================
 @api.post("/revenue-share")
-async def create_revenue_share(payload: RevenueShareCreate, dep: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def create_revenue_share(payload: RevenueShareCreate, dep: dict = Depends(require_roles(*WRITE_LEVEL))):
     net = payload.gross_revenue - payload.operational_cost
     manager = round(net * 0.30, 2)
     bumdes = round(net * 0.70, 2)
@@ -297,6 +337,14 @@ async def create_revenue_share(payload: RevenueShareCreate, dep: dict = Depends(
     )
     await db.revenue_shares.insert_one(rs.to_mongo())
     return rs
+
+
+@api.delete("/revenue-share/{rs_id}")
+async def delete_revenue_share(rs_id: str, _: dict = Depends(require_roles(*WRITE_LEVEL))):
+    r = await db.revenue_shares.delete_one({"id": rs_id})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Data bagi hasil tidak ditemukan")
+    return {"deleted": r.deleted_count}
 
 
 @api.get("/revenue-share")
@@ -551,22 +599,22 @@ async def _per_unit_report(start_date: str, end_date: str):
 
 
 @api.get("/reports/laba-rugi")
-async def rpt_laba_rugi(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def rpt_laba_rugi(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     return await _laba_rugi(start_date, end_date)
 
 
 @api.get("/reports/neraca")
-async def rpt_neraca(as_of_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def rpt_neraca(as_of_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     return await _neraca(as_of_date)
 
 
 @api.get("/reports/arus-kas")
-async def rpt_arus_kas(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def rpt_arus_kas(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     return await _arus_kas(start_date, end_date)
 
 
 @api.get("/reports/perubahan-ekuitas")
-async def rpt_pe(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def rpt_pe(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     return await _perubahan_ekuitas(start_date, end_date)
 
 
@@ -576,7 +624,7 @@ async def rpt_per_unit(start_date: str, end_date: str, _: dict = Depends(get_cur
 
 
 @api.get("/reports/calk")
-async def rpt_calk(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def rpt_calk(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     lr = await _laba_rugi(start_date, end_date)
     nr = await _neraca(end_date)
     ak = await _arus_kas(start_date, end_date)
@@ -610,10 +658,33 @@ async def rpt_calk(start_date: str, end_date: str, _: dict = Depends(require_rol
 
 
 # ==================== PDF EXPORT ====================
+# Cached paragraph styles for cell content (word-wrap in table cells).
+_STYLES = getSampleStyleSheet()
+_CELL_STYLE = ParagraphStyle(
+    "cell", parent=_STYLES["Normal"], fontName="Helvetica",
+    fontSize=8.5, leading=11, wordWrap="CJK", spaceBefore=0, spaceAfter=0,
+)
+_CELL_RIGHT = ParagraphStyle("cell_r", parent=_CELL_STYLE, alignment=2)
+_CELL_BOLD = ParagraphStyle("cell_b", parent=_CELL_STYLE, fontName="Helvetica-Bold")
+_CELL_BOLD_RIGHT = ParagraphStyle("cell_br", parent=_CELL_BOLD, alignment=2)
+_SECTION_STYLE = ParagraphStyle(
+    "section", parent=_STYLES["Normal"], fontName="Helvetica-Bold",
+    fontSize=9, textColor=colors.HexColor("#2E4F32"), spaceBefore=0, spaceAfter=0,
+)
+
+
+def P(text, style=_CELL_STYLE):
+    """Wrap text in a Paragraph so it word-wraps inside a table cell."""
+    if text is None:
+        text = ""
+    s = str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return Paragraph(s, style)
+
+
 def _pdf_response(build_fn, filename: str):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm,
-                            leftMargin=1.5 * cm, rightMargin=1.5 * cm)
+                            leftMargin=1.2 * cm, rightMargin=1.2 * cm)
     story = build_fn()
     doc.build(story)
     buf.seek(0)
@@ -636,104 +707,130 @@ def _table_style():
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D4E09B")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1A2E1E")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#E8EAE6")),
-        ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FDFBF7")]),
     ])
 
 
+def _section_row(text: str, ncols: int):
+    return [P(f"<b>{text}</b>", _SECTION_STYLE)] + [P("") for _ in range(ncols - 1)]
+
+
 @api.get("/reports/laba-rugi/pdf")
-async def pdf_lr(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def pdf_lr(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _laba_rugi(start_date, end_date)
     def build():
-        styles = getSampleStyleSheet()
         story = []
-        _pdf_header(story, styles, "LAPORAN LABA RUGI", f"Periode: {start_date} s.d. {end_date}")
-        rows = [["Kode", "Nama Akun", "Jumlah"]]
-        rows.append(["", "PENDAPATAN", ""])
+        _pdf_header(story, _STYLES, "LAPORAN LABA RUGI", f"Periode: {start_date} s.d. {end_date}")
+        rows = [[P("<b>Kode</b>", _CELL_BOLD), P("<b>Nama Akun</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        section_rows = []
+        rows.append(_section_row("PENDAPATAN", 3)); section_rows.append(len(rows) - 1)
         for it in data["pendapatan"]:
-            rows.append([it["code"], it["name"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Pendapatan", fmt_rp(data["total_pendapatan"])])
-        rows.append(["", "BEBAN", ""])
+            rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Pendapatan</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_pendapatan'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append(_section_row("BEBAN", 3)); section_rows.append(len(rows) - 1)
         for it in data["beban"]:
-            rows.append([it["code"], it["name"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Beban", fmt_rp(data["total_beban"])])
-        rows.append(["", "LABA / (RUGI) BERSIH", fmt_rp(data["laba_bersih"])])
-        t = Table(rows, colWidths=[2.5 * cm, 10 * cm, 4.5 * cm])
-        t.setStyle(_table_style())
+            rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Beban</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_beban'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("<b>LABA / (RUGI) BERSIH</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['laba_bersih'])}</b>", _CELL_BOLD_RIGHT)])
+        total_row_idx = len(rows) - 1
+        t = Table(rows, colWidths=[2.3 * cm, 9.7 * cm, 5.5 * cm], repeatRows=1)
+        ts = _table_style()
+        for sr in section_rows:
+            ts.add("BACKGROUND", (0, sr), (-1, sr), colors.HexColor("#F5F1E8"))
+        ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
+        t.setStyle(ts)
         story.append(t)
         return story
     return _pdf_response(build, f"Laba-Rugi_{start_date}_sd_{end_date}.pdf")
 
 
 @api.get("/reports/neraca/pdf")
-async def pdf_neraca(as_of_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def pdf_neraca(as_of_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _neraca(as_of_date)
     def build():
-        styles = getSampleStyleSheet()
         story = []
-        _pdf_header(story, styles, "NERACA", f"Per tanggal: {as_of_date}")
-        rows = [["Kode", "Akun", "Jumlah"], ["", "ASET", ""]]
+        _pdf_header(story, _STYLES, "NERACA", f"Per tanggal: {as_of_date}")
+        rows = [[P("<b>Kode</b>", _CELL_BOLD), P("<b>Akun</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        section_rows = []
+        rows.append(_section_row("ASET", 3)); section_rows.append(len(rows) - 1)
         for it in data["aset"]:
-            rows.append([it["code"], it["name"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Aset", fmt_rp(data["total_aset"])])
-        rows.append(["", "KEWAJIBAN", ""])
+            rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Aset</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_aset'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append(_section_row("KEWAJIBAN", 3)); section_rows.append(len(rows) - 1)
         for it in data["kewajiban"]:
-            rows.append([it["code"], it["name"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Kewajiban", fmt_rp(data["total_kewajiban"])])
-        rows.append(["", "EKUITAS", ""])
+            rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Kewajiban</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_kewajiban'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append(_section_row("EKUITAS", 3)); section_rows.append(len(rows) - 1)
         for it in data["ekuitas"]:
-            rows.append([it["code"], it["name"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Ekuitas", fmt_rp(data["total_ekuitas"])])
-        rows.append(["", "TOTAL PASIVA (Kewajiban + Ekuitas)", fmt_rp(data["total_pasiva"])])
-        t = Table(rows, colWidths=[2.5 * cm, 10 * cm, 4.5 * cm])
-        t.setStyle(_table_style())
+            rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Ekuitas</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_ekuitas'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("<b>TOTAL PASIVA (Kewajiban + Ekuitas)</b>", _CELL_BOLD),
+                     P(f"<b>{fmt_rp(data['total_pasiva'])}</b>", _CELL_BOLD_RIGHT)])
+        total_row_idx = len(rows) - 1
+        t = Table(rows, colWidths=[2.3 * cm, 9.7 * cm, 5.5 * cm], repeatRows=1)
+        ts = _table_style()
+        for sr in section_rows:
+            ts.add("BACKGROUND", (0, sr), (-1, sr), colors.HexColor("#F5F1E8"))
+        ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
+        t.setStyle(ts)
         story.append(t)
         return story
     return _pdf_response(build, f"Neraca_{as_of_date}.pdf")
 
 
 @api.get("/reports/arus-kas/pdf")
-async def pdf_ak(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def pdf_ak(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _arus_kas(start_date, end_date)
     def build():
-        styles = getSampleStyleSheet()
         story = []
-        _pdf_header(story, styles, "LAPORAN ARUS KAS", f"Periode: {start_date} s.d. {end_date}")
-        rows = [["Tanggal", "Keterangan", "Jumlah"], ["", "KAS MASUK", ""]]
+        _pdf_header(story, _STYLES, "LAPORAN ARUS KAS", f"Periode: {start_date} s.d. {end_date}")
+        rows = [[P("<b>Tanggal</b>", _CELL_BOLD), P("<b>Keterangan</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        section_rows = []
+        rows.append(_section_row("KAS MASUK", 3)); section_rows.append(len(rows) - 1)
         for it in data["kas_masuk"]:
-            rows.append([it["date"], it["description"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Kas Masuk", fmt_rp(data["total_masuk"])])
-        rows.append(["", "KAS KELUAR", ""])
+            rows.append([P(it["date"]), P(it["description"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Kas Masuk</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_masuk'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append(_section_row("KAS KELUAR", 3)); section_rows.append(len(rows) - 1)
         for it in data["kas_keluar"]:
-            rows.append([it["date"], it["description"], fmt_rp(it["amount"])])
-        rows.append(["", "Total Kas Keluar", fmt_rp(data["total_keluar"])])
-        rows.append(["", "ARUS KAS BERSIH", fmt_rp(data["arus_kas_bersih"])])
-        t = Table(rows, colWidths=[3 * cm, 9.5 * cm, 4.5 * cm])
-        t.setStyle(_table_style())
+            rows.append([P(it["date"]), P(it["description"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
+        rows.append([P(""), P("<b>Total Kas Keluar</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_keluar'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("<b>ARUS KAS BERSIH</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['arus_kas_bersih'])}</b>", _CELL_BOLD_RIGHT)])
+        total_row_idx = len(rows) - 1
+        t = Table(rows, colWidths=[2.5 * cm, 9.5 * cm, 5.5 * cm], repeatRows=1)
+        ts = _table_style()
+        for sr in section_rows:
+            ts.add("BACKGROUND", (0, sr), (-1, sr), colors.HexColor("#F5F1E8"))
+        ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
+        t.setStyle(ts)
         story.append(t)
         return story
     return _pdf_response(build, f"Arus-Kas_{start_date}_sd_{end_date}.pdf")
 
 
 @api.get("/reports/perubahan-ekuitas/pdf")
-async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _perubahan_ekuitas(start_date, end_date)
     def build():
-        styles = getSampleStyleSheet()
         story = []
-        _pdf_header(story, styles, "LAPORAN PERUBAHAN EKUITAS", f"Periode: {start_date} s.d. {end_date}")
+        _pdf_header(story, _STYLES, "LAPORAN PERUBAHAN EKUITAS", f"Periode: {start_date} s.d. {end_date}")
         rows = [
-            ["Uraian", "Jumlah"],
-            ["Modal Awal Periode", fmt_rp(data["modal_awal"])],
-            ["Penambahan Modal", fmt_rp(data["tambahan_modal"])],
-            ["Laba/Rugi Bersih Periode Berjalan", fmt_rp(data["laba_bersih_periode"])],
-            ["MODAL AKHIR PERIODE", fmt_rp(data["modal_akhir"])],
+            [P("<b>Uraian</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)],
+            [P("Modal Awal Periode"), P(fmt_rp(data["modal_awal"]), _CELL_RIGHT)],
+            [P("Penambahan Modal"), P(fmt_rp(data["tambahan_modal"]), _CELL_RIGHT)],
+            [P("Laba/Rugi Bersih Periode Berjalan"), P(fmt_rp(data["laba_bersih_periode"]), _CELL_RIGHT)],
+            [P("<b>MODAL AKHIR PERIODE</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['modal_akhir'])}</b>", _CELL_BOLD_RIGHT)],
         ]
-        t = Table(rows, colWidths=[12 * cm, 5 * cm])
-        t.setStyle(_table_style())
+        t = Table(rows, colWidths=[11 * cm, 6.5 * cm], repeatRows=1)
+        ts = _table_style()
+        ts.add("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#D4E09B"))
+        t.setStyle(ts)
         story.append(t)
         return story
     return _pdf_response(build, f"Perubahan-Ekuitas_{start_date}_sd_{end_date}.pdf")
@@ -743,45 +840,62 @@ async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles
 async def pdf_per_unit(start_date: str, end_date: str, _: dict = Depends(get_current_user_payload)):
     data = await _per_unit_report(start_date, end_date)
     def build():
-        styles = getSampleStyleSheet()
         story = []
-        _pdf_header(story, styles, "LAPORAN PER UNIT USAHA", f"Periode: {start_date} s.d. {end_date}")
-        rows = [["Kode", "Unit Usaha", "Pendapatan", "Beban", "Laba Bersih", "30% Pengelola", "70% BUMDES"]]
+        _pdf_header(story, _STYLES, "LAPORAN PER UNIT USAHA", f"Periode: {start_date} s.d. {end_date}")
+        rows = [[P("<b>Kode</b>", _CELL_BOLD), P("<b>Unit Usaha</b>", _CELL_BOLD),
+                 P("<b>Pendapatan</b>", _CELL_BOLD_RIGHT), P("<b>Beban</b>", _CELL_BOLD_RIGHT),
+                 P("<b>Laba Bersih</b>", _CELL_BOLD_RIGHT),
+                 P("<b>30% Pengelola</b>", _CELL_BOLD_RIGHT), P("<b>70% BUMDES</b>", _CELL_BOLD_RIGHT)]]
+        total_p = total_b = total_l = total_m = total_bmd = 0.0
         for u in data["units"]:
-            rows.append([u["code"], u["name"], fmt_rp(u["pendapatan"]), fmt_rp(u["beban"]),
-                         fmt_rp(u["laba_bersih"]), fmt_rp(u["share_pengelola_30"]), fmt_rp(u["share_bumdes_70"])])
-        t = Table(rows, colWidths=[1.5 * cm, 4 * cm, 2.7 * cm, 2.5 * cm, 2.7 * cm, 2.5 * cm, 2.5 * cm])
-        t.setStyle(_table_style())
+            rows.append([P(u["code"]), P(u["name"]),
+                         P(fmt_rp(u["pendapatan"]), _CELL_RIGHT), P(fmt_rp(u["beban"]), _CELL_RIGHT),
+                         P(fmt_rp(u["laba_bersih"]), _CELL_RIGHT),
+                         P(fmt_rp(u["share_pengelola_30"]), _CELL_RIGHT),
+                         P(fmt_rp(u["share_bumdes_70"]), _CELL_RIGHT)])
+            total_p += u["pendapatan"]; total_b += u["beban"]; total_l += u["laba_bersih"]
+            total_m += u["share_pengelola_30"]; total_bmd += u["share_bumdes_70"]
+        rows.append([P(""), P("<b>TOTAL</b>", _CELL_BOLD),
+                     P(f"<b>{fmt_rp(total_p)}</b>", _CELL_BOLD_RIGHT),
+                     P(f"<b>{fmt_rp(total_b)}</b>", _CELL_BOLD_RIGHT),
+                     P(f"<b>{fmt_rp(total_l)}</b>", _CELL_BOLD_RIGHT),
+                     P(f"<b>{fmt_rp(total_m)}</b>", _CELL_BOLD_RIGHT),
+                     P(f"<b>{fmt_rp(total_bmd)}</b>", _CELL_BOLD_RIGHT)])
+        total_row_idx = len(rows) - 1
+        t = Table(rows, colWidths=[1.4 * cm, 4.6 * cm, 2.4 * cm, 1.9 * cm, 2.4 * cm, 2.4 * cm, 2.4 * cm], repeatRows=1)
+        ts = _table_style()
+        ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
+        t.setStyle(ts)
         story.append(t)
         return story
     return _pdf_response(build, f"Laporan-Per-Unit_{start_date}_sd_{end_date}.pdf")
 
 
 @api.get("/reports/calk/pdf")
-async def pdf_calk(start_date: str, end_date: str, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def pdf_calk(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await rpt_calk(start_date, end_date)
     def build():
-        styles = getSampleStyleSheet()
         story = []
-        _pdf_header(story, styles, "CATATAN ATAS LAPORAN KEUANGAN (CaLK)",
+        _pdf_header(story, _STYLES, "CATATAN ATAS LAPORAN KEUANGAN (CaLK)",
                     f"Periode: {start_date} s.d. {end_date}")
-        story.append(Paragraph("<b>1. Informasi Umum</b>", styles["Heading3"]))
+        story.append(Paragraph("<b>1. Informasi Umum</b>", _STYLES["Heading3"]))
         info = data["informasi_umum"]
         for k, v in info.items():
-            story.append(Paragraph(f"• {k.replace('_', ' ').title()}: {v}", styles["Normal"]))
+            story.append(Paragraph(f"• <b>{k.replace('_', ' ').title()}</b>: {v}", _STYLES["Normal"]))
         story.append(Spacer(1, 0.4 * cm))
-        story.append(Paragraph("<b>2. Ringkasan Kinerja Keuangan</b>", styles["Heading3"]))
+        story.append(Paragraph("<b>2. Ringkasan Kinerja Keuangan</b>", _STYLES["Heading3"]))
         rk = data["ringkasan_kinerja"]
-        rows = [["Uraian", "Jumlah"]]
+        rows = [[P("<b>Uraian</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
         for k, v in rk.items():
-            rows.append([k.replace("_", " ").title(), fmt_rp(v)])
-        t = Table(rows, colWidths=[10 * cm, 5 * cm])
+            rows.append([P(k.replace("_", " ").title()), P(fmt_rp(v), _CELL_RIGHT)])
+        t = Table(rows, colWidths=[11 * cm, 6 * cm], repeatRows=1)
         t.setStyle(_table_style())
         story.append(t)
         story.append(Spacer(1, 0.4 * cm))
-        story.append(Paragraph("<b>3. Kebijakan Akuntansi</b>", styles["Heading3"]))
+        story.append(Paragraph("<b>3. Kebijakan Akuntansi</b>", _STYLES["Heading3"]))
         for k in data["kebijakan_akuntansi"]:
-            story.append(Paragraph(f"• {k}", styles["Normal"]))
+            story.append(Paragraph(f"• {k}", _STYLES["Normal"]))
+            story.append(Spacer(1, 0.15 * cm))
         return story
     return _pdf_response(build, f"CaLK_{start_date}_sd_{end_date}.pdf")
 
