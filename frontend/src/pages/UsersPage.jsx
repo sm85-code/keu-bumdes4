@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api, { ROLE_LABELS } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Plus, Trash } from "@phosphor-icons/react";
@@ -12,11 +12,11 @@ export default function UsersPage() {
     username: "", email: "", name: "", password: "", role: "pengelola", unit_usaha_id: "",
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [u, un] = await Promise.all([api.get("/users"), api.get("/unit-usaha")]);
     setUsers(u.data); setUnits(un.data);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   const submit = async (e) => {
     e.preventDefault();

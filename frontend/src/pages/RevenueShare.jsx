@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api, { fmtRp } from "@/lib/api";
 import { Plus, HandCoins } from "@phosphor-icons/react";
 
@@ -13,11 +13,11 @@ export default function RevenueShare() {
     operational_cost: "",
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [r, u] = await Promise.all([api.get("/revenue-share"), api.get("/unit-usaha")]);
     setList(r.data); setUnits(u.data);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   const submit = async (e) => {
     e.preventDefault();

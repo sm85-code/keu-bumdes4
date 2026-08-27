@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { useAuth, can } from "@/lib/auth";
 import { Plus } from "@phosphor-icons/react";
@@ -29,11 +29,11 @@ export default function COAPage() {
     normal_balance: "debit", parent_code: "",
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const r = await api.get("/accounts");
     setList(r.data);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   const canAdd = can(user, "admin", "direktur", "bendahara");
 
@@ -65,7 +65,10 @@ export default function COAPage() {
     } finally { setSaving(false); }
   };
 
-  const filtered = filter ? list.filter(a => a.category === filter) : list;
+  const filtered = useMemo(
+    () => (filter ? list.filter(a => a.category === filter) : list),
+    [list, filter]
+  );
 
   return (
     <div className="space-y-6" data-testid="coa-page">

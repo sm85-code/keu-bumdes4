@@ -13,6 +13,11 @@ import MitraPage from "@/pages/MitraPage";
 import COAPage from "@/pages/COAPage";
 import UsersPage from "@/pages/UsersPage";
 
+const ROLES_REPORTS = ["admin", "direktur", "bendahara"];
+const ROLES_REVSHARE = ["admin", "direktur", "bendahara"];
+const ROLES_COA = ["admin", "direktur", "bendahara"];
+const ROLES_USERS = ["admin", "direktur"];
+
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -31,13 +36,13 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/transactions" element={<Protected><Transactions /></Protected>} />
-            <Route path="/reports" element={<Protected roles={["admin","direktur","bendahara"]}><Reports /></Protected>} />
+            <Route path="/reports" element={<Protected roles={ROLES_REPORTS}><Reports /></Protected>} />
             <Route path="/reports/per-unit" element={<Protected><ReportsPerUnit /></Protected>} />
-            <Route path="/revenue-share" element={<Protected roles={["admin","direktur","bendahara"]}><RevenueShare /></Protected>} />
+            <Route path="/revenue-share" element={<Protected roles={ROLES_REVSHARE}><RevenueShare /></Protected>} />
             <Route path="/unit-usaha" element={<Protected><UnitUsahaPage /></Protected>} />
             <Route path="/mitra" element={<Protected><MitraPage /></Protected>} />
-            <Route path="/accounts" element={<Protected roles={["admin","direktur","bendahara"]}><COAPage /></Protected>} />
-            <Route path="/users" element={<Protected roles={["admin","direktur"]}><UsersPage /></Protected>} />
+            <Route path="/accounts" element={<Protected roles={ROLES_COA}><COAPage /></Protected>} />
+            <Route path="/users" element={<Protected roles={ROLES_USERS}><UsersPage /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>

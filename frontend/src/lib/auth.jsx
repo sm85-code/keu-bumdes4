@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 
 const AuthCtx = createContext(null);
@@ -22,22 +22,24 @@ export function AuthProvider({ children }) {
     }).finally(() => setLoading(false));
   }, []);
 
-  const login = async (username, password) => {
+  const login = useCallback(async (username, password) => {
     const r = await api.post("/auth/login", { username, password });
     localStorage.setItem("bumdes_token", r.data.access_token);
     localStorage.setItem("bumdes_user", JSON.stringify(r.data.user));
     setUser(r.data.user);
     return r.data.user;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("bumdes_token");
     localStorage.removeItem("bumdes_user");
     setUser(null);
     window.location.href = "/login";
-  };
+  }, []);
 
-  return <AuthCtx.Provider value={{ user, login, logout, loading }}>{children}</AuthCtx.Provider>;
+  const value = useMemo(() => ({ user, login, logout, loading }), [user, login, logout, loading]);
+
+  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
 
 export const useAuth = () => useContext(AuthCtx);

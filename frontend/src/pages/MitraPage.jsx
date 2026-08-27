@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api, { fmtRp } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Plus, Trash } from "@phosphor-icons/react";
@@ -11,11 +11,11 @@ export default function MitraPage() {
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ unit_usaha_id: "", name: "", mitra_type: "", phone: "", address: "", modal: 0 });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [m, u] = await Promise.all([api.get("/mitra", { params: filter ? { unit_usaha_id: filter } : {} }), api.get("/unit-usaha")]);
     setList(m.data); setUnits(u.data);
-  };
-  useEffect(() => { load(); }, [filter]);
+  }, [filter]);
+  useEffect(() => { load(); }, [load]);
 
   const submit = async (e) => {
     e.preventDefault();

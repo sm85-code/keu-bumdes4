@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api, { fmtRp, API } from "@/lib/api";
 import { FilePdf } from "@phosphor-icons/react";
 
@@ -10,12 +10,12 @@ export default function ReportsPerUnit() {
   const [end, setEnd] = useState(today);
   const [data, setData] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const r = await api.get("/reports/per-unit", { params: { start_date: start, end_date: end } });
     setData(r.data);
-  };
+  }, [start, end]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const downloadPdf = async () => {
     const token = localStorage.getItem("bumdes_token");

@@ -202,7 +202,11 @@ async def list_mitra(unit_usaha_id: Optional[str] = None, payload: dict = Depend
 
 @api.post("/mitra", response_model=Mitra)
 async def create_mitra(payload: MitraCreate, dep: dict = Depends(get_current_user_payload)):
-    m = Mitra(**payload.model_dump())
+    user = await user_from_payload(dep)
+    unit_id = payload.unit_usaha_id
+    if user.role == UserRole.PENGELOLA:
+        unit_id = user.unit_usaha_id
+    m = Mitra(**{**payload.model_dump(), "unit_usaha_id": unit_id})
     await db.mitra.insert_one(m.to_mongo())
     return m
 

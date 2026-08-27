@@ -142,13 +142,13 @@ function ReportBody({ active, data }) {
           <thead><tr><th>Kode</th><th>Akun</th><th className="num">Jumlah</th></tr></thead>
           <tbody>
             <tr><td colSpan={3} className="font-semibold" style={{ background: "#F5F1E8" }}>ASET</td></tr>
-            {data.aset.map((it, i) => (<tr key={i}><td>{it.code}</td><td>{it.name}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
+            {data.aset.map((it) => (<tr key={`a-${it.code}`}><td>{it.code}</td><td>{it.name}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
             <tr><td></td><td className="font-semibold">Total Aset</td><td className="num font-semibold">{fmtRp(data.total_aset)}</td></tr>
             <tr><td colSpan={3} className="font-semibold" style={{ background: "#F5F1E8" }}>KEWAJIBAN</td></tr>
-            {data.kewajiban.map((it, i) => (<tr key={i}><td>{it.code}</td><td>{it.name}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
+            {data.kewajiban.map((it) => (<tr key={`k-${it.code}`}><td>{it.code}</td><td>{it.name}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
             <tr><td></td><td className="font-semibold">Total Kewajiban</td><td className="num font-semibold">{fmtRp(data.total_kewajiban)}</td></tr>
             <tr><td colSpan={3} className="font-semibold" style={{ background: "#F5F1E8" }}>EKUITAS</td></tr>
-            {data.ekuitas.map((it, i) => (<tr key={i}><td>{it.code}</td><td>{it.name}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
+            {data.ekuitas.map((it, i) => (<tr key={`e-${it.code}-${i}`}><td>{it.code}</td><td>{it.name}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
             <tr><td></td><td className="font-semibold">Total Ekuitas</td><td className="num font-semibold">{fmtRp(data.total_ekuitas)}</td></tr>
             <tr style={{ background: "#D4E09B" }}><td></td><td className="font-bold">TOTAL PASIVA</td><td className="num font-bold">{fmtRp(data.total_pasiva)}</td></tr>
           </tbody>
@@ -165,10 +165,10 @@ function ReportBody({ active, data }) {
         <thead><tr><th>Tanggal</th><th>Keterangan</th><th className="num">Jumlah</th></tr></thead>
         <tbody>
           <tr><td colSpan={3} className="font-semibold" style={{ background: "#F5F1E8" }}>KAS MASUK</td></tr>
-          {data.kas_masuk.map((it, i) => (<tr key={i}><td>{it.date}</td><td>{it.description}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
+          {data.kas_masuk.map((it, i) => (<tr key={`m-${it.date}-${i}`}><td>{it.date}</td><td>{it.description}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
           <tr><td></td><td className="font-semibold">Total Kas Masuk</td><td className="num font-semibold">{fmtRp(data.total_masuk)}</td></tr>
           <tr><td colSpan={3} className="font-semibold" style={{ background: "#F5F1E8" }}>KAS KELUAR</td></tr>
-          {data.kas_keluar.map((it, i) => (<tr key={i}><td>{it.date}</td><td>{it.description}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
+          {data.kas_keluar.map((it, i) => (<tr key={`k-${it.date}-${i}`}><td>{it.date}</td><td>{it.description}</td><td className="num">{fmtRp(it.amount)}</td></tr>))}
           <tr><td></td><td className="font-semibold">Total Kas Keluar</td><td className="num font-semibold">{fmtRp(data.total_keluar)}</td></tr>
           <tr style={{ background: "#D4E09B" }}><td></td><td className="font-bold">ARUS KAS BERSIH</td><td className="num font-bold">{fmtRp(data.arus_kas_bersih)}</td></tr>
         </tbody>
@@ -212,7 +212,7 @@ function ReportBody({ active, data }) {
         <section>
           <h4 className="font-heading font-semibold mb-2">3. Kebijakan Akuntansi</h4>
           <ul className="space-y-1">
-            {data.kebijakan_akuntansi.map((k, i) => <li key={i}>• {k}</li>)}
+            {data.kebijakan_akuntansi.map((k) => <li key={k}>• {k}</li>)}
           </ul>
         </section>
       </div>

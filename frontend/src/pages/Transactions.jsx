@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api, { fmtRp, fmtDate } from "@/lib/api";
 import { useAuth, can } from "@/lib/auth";
 import { Plus, Trash, Receipt } from "@phosphor-icons/react";
@@ -22,7 +22,7 @@ export default function Transactions() {
     reference: "",
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const [t, u, tt, a] = await Promise.all([
       api.get("/transactions"),
@@ -32,9 +32,9 @@ export default function Transactions() {
     ]);
     setTxs(t.data); setUnits(u.data); setTypes(tt.data); setAccounts(a.data);
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const onTypeChange = (code) => {
     const t = types.find(x => x.code === code);

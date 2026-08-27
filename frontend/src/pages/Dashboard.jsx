@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api, { fmtRp } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -8,6 +8,9 @@ import {
 import { TrendUp, TrendDown, Coin, Storefront, ReceiptX } from "@phosphor-icons/react";
 
 const COLORS = ["#8CA650", "#A8DADC", "#E1C3F4", "#F4A261", "#D4E09B", "#5C6E5E"];
+const TOOLTIP_STYLE = { background: "white", border: "1px solid #E8EAE6", borderRadius: 8 };
+const PIE_LEGEND_STYLE = { fontSize: 11 };
+const yTickFormatter = (v) => (v >= 1e6 ? `${(v/1e6).toFixed(1)}Jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}rb` : v);
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -18,15 +21,15 @@ export default function Dashboard() {
     api.get("/reports/dashboard").then((r) => setData(r.data)).finally(() => setLoading(false));
   }, []);
 
+  const kpis = useMemo(() => data ? [
+    { key: "pendapatan", label: "Total Pendapatan", value: data.total_pendapatan, icon: TrendUp, bg: "var(--primary-light)", color: "#2E4F32" },
+    { key: "beban", label: "Total Beban", value: data.total_beban, icon: TrendDown, bg: "#FDE9D0", color: "#8a4a1a" },
+    { key: "laba", label: "Laba Bersih", value: data.laba_bersih, icon: Coin, bg: "var(--secondary-blue)", color: "#1e4e50" },
+    { key: "tx", label: "Jumlah Transaksi", value: data.total_transactions, icon: ReceiptX, bg: "var(--secondary-purple)", color: "#4a2760", isCount: true },
+  ] : [], [data]);
+
   if (loading) return <div className="text-sm">Memuat dashboard...</div>;
   if (!data) return <div className="text-sm">Tidak ada data.</div>;
-
-  const kpis = [
-    { label: "Total Pendapatan", value: data.total_pendapatan, icon: TrendUp, bg: "var(--primary-light)", color: "#2E4F32" },
-    { label: "Total Beban", value: data.total_beban, icon: TrendDown, bg: "#FDE9D0", color: "#8a4a1a" },
-    { label: "Laba Bersih", value: data.laba_bersih, icon: Coin, bg: "var(--secondary-blue)", color: "#1e4e50" },
-    { label: "Jumlah Transaksi", value: data.total_transactions, icon: ReceiptX, bg: "var(--secondary-purple)", color: "#4a2760", isCount: true },
-  ];
 
   return (
     <div className="space-y-6" data-testid="dashboard-page">
@@ -43,7 +46,7 @@ export default function Dashboard() {
         {kpis.map((k) => {
           const Icon = k.icon;
           return (
-            <div key={k.label} className="card card-sm" data-testid={`kpi-${k.label.replace(/\s+/g, '-').toLowerCase()}`}>
+            <div key={k.key} className="card card-sm" data-testid={`kpi-${k.key}`}>
               <div className="flex items-start justify-between mb-3">
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: k.bg }}>
                   <Icon size={18} weight="duotone" color={k.color} />
@@ -66,8 +69,8 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={data.monthly}>
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => (v >= 1e6 ? `${(v/1e6).toFixed(1)}Jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}rb` : v)} />
-                <Tooltip formatter={(v) => fmtRp(v)} contentStyle={{ background: "white", border: "1px solid #E8EAE6", borderRadius: 8 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={yTickFormatter} />
+                <Tooltip formatter={(v) => fmtRp(v)} contentStyle={TOOLTIP_STYLE} />
                 <Legend />
                 <Bar dataKey="pendapatan" name="Pendapatan" fill="#8CA650" radius={[4,4,0,0]} />
                 <Bar dataKey="beban" name="Beban" fill="#F4A261" radius={[4,4,0,0]} />
@@ -85,10 +88,10 @@ export default function Dashboard() {
               <PieChart>
                 <Pie data={data.unit_summaries.filter(u => u.pendapatan > 0)}
                      dataKey="pendapatan" nameKey="code" cx="50%" cy="50%" outerRadius={80} innerRadius={40}>
-                  {data.unit_summaries.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {data.unit_summaries.map((u) => <Cell key={u.id} fill={COLORS[data.unit_summaries.indexOf(u) % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v) => fmtRp(v)} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={PIE_LEGEND_STYLE} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
