@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 4 comprehensive test of 7 big revisions. Backend: 17/17 pytest tests PASS in test_iter4_bigrevisions.py covering (1) Excel import for transactions with valid data (inserted>=1, errors=[]) + invalid jenis_transaksi handling; (2) PUT /transactions/{id} RBAC — admin can edit, pengelola of UU02 gets 403 editing UU01 transaction; (3) PUT/DELETE /accounts admin-only (403 for direktur/bendahara) + DELETE returns 400 when account is used by a transaction (1-1101 Kas); (4) transaction-types CRUD admin-only (bendahara POST 403) + unit_codes support in create/update, seed backfill verified — penerimaan_setoran_ikan.unit_codes==['UU02'] and setoran_pengelola_ke_bumdes has all 6 units; (5) arus-kas kas_masuk/kas_keluar sorted ASC by date, per-unit units sorted ASC by code; (6) all 6 PDF endpoints (laba-rugi, neraca, arus-kas, perubahan-ekuitas, per-unit, calk) contain 'KARYA RAHARJA' (not Waharja), NO literal '<b>' text, and signature block with 'Direktur BUMDES', 'Bendahara BUMDES', 'Pangandaran'; (7) /reports/dashboard accepts start_date & end_date query params.\n\nFrontend Playwright verified: browser tab title='Sistem Laporan Keuangan | BUMDES Karya Raharja', login page shows Buildings+Plant duotone logo (4 SVGs), 'Sesuai Kepmendesa PDTT No. 136 Tahun 2022' text visible below form. Dashboard greeting shows role ('Admin Utama, ini ringkasan tahun ini.' / 'Direktur, ini ringkasan tahun ini.') via data-testid='dashboard-greeting'. Period selector has 4 buttons with 'tahun' default active (btn-secondary), clicking 'Per 3 Bulan' switches active state correctly (btn-secondary <-> btn-outline swap) and re-fetches dashboard data. Tren chart implemented as LineChart (recharts, no bar rectangles). COA route is /accounts: tt-table renders 27 jenis transaksi rows with UU## and 'Umum (BUMDES)' badges in Unit Usaha column; admin sees 27 edit-tt + 27 del-tt + 56 edit-acc + 56 del-acc buttons; direktur sees ZERO edit/del buttons on either table. Transactions form shows label 'JENIS TRANSAKSI (DIFILTER BERDASARKAN UNIT TERPILIH)' — selecting UU02 in unit dropdown resets jenis selection (filter re-applied). btn-import-excel visible for admin and direktur. All flows work end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter4_bigrevisions.py",
+    "/app/test_reports/pytest/pytest_iter4.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py grown to ~1160 lines (was ~917) — strongly consider splitting into routers/ (auth, accounts, transactions, reports, pdf). PDF generation alone is ~300 lines and would benefit from its own module.",
+    "seed_startup runs a backfill loop hitting DB for every transaction type on every startup — cheap but not idempotent-friendly; consider one bulk update pipeline with $set on empty unit_codes.",
+    "POST /transaction-types accepts payload: dict without Pydantic model — no input validation, no schema in OpenAPI. Add TransactionTypeCreate model.",
+    "PUT /transactions/{id} allows any admin/direktur/bendahara to change unit_usaha_id on any tx; consider audit log or preserving unit for pengelola-created rows.",
+    "Excel import endpoint reads whole file to memory (fine at small scale); no row cap. Add MAX_ROWS guard (e.g. 5000) to prevent DoS.",
+    "_signature_block queries DB for direktur/bendahara names inside every PDF endpoint — cache by request or accept as function param for slightly faster PDF gen."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter4_bigrevisions.py (new — 17 tests covering all 7 revision groups + PDF content verification via pypdf)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (all critical UI checks pass)"},
+  "test_credentials": "admin/admin123, budianto/direktur123, riska/bendahara123 — all working. Test fixture creates+deletes TEST_pengelola_<random> pengelola user for UU02 during pengelola RBAC test.",
+  "seed_data_creation": "Test creates 1 TEST_ import transaction (500000, penerimaan_bagi_hasil_domba, 2025-06-01) that persists in DB after import test. Transient TEST accounts 9-XXXX and test_tt_XXXX auto-cleaned by tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 4 verified end-to-end. Backend routes summary: POST /api/transactions/import (openpyxl, admin/direktur/bendahara), PUT /api/transactions/{id} (pengelola limited to own unit), PUT+DELETE /api/accounts/{code} (admin, DELETE blocked when referenced), POST+PUT+DELETE /api/transaction-types (admin, unit_codes array), all 6 PDF endpoints append _signature_block() with real direktur/bendahara names. Frontend: COA at /accounts (not /coa), Dashboard uses LineChart with period-selector default 'tahun', Transactions form uses filteredTypes memo keyed on selected unit — jenis dropdown resets when unit changes. All data-testid attributes present as documented.",
+  "rca_of_the_issue": "N/A — all 7 revision groups verified working. Note during first playwright pass I got edit-tt=0 for admin because I only waited for tt-table shell and not tt-table rows; retested with wait_for_selector('[data-testid^=\"edit-tt-\"]') and confirmed 27 buttons render correctly."
+}

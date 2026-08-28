@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 5 verifies BUMDES logo integration on top of iteration 4. Backend: 15/15 pytest tests PASS in test_iter5_logo.py — (a) /app/backend/logo-bumdes.png exists (921KB); (b) login works for all 3 seeded roles admin/budianto/riska; (c) /reports/dashboard, /accounts, /transactions, /users, /transaction-types all 200; (d) ALL 6 PDF endpoints (laba-rugi, neraca, arus-kas, perubahan-ekuitas, per-unit, calk) return valid PDFs > 300KB with 'KARYA RAHARJA', 'Pangandaran', 'Direktur BUMDES', 'Bendahara BUMDES' in extracted text and NO literal '<b>'. Frontend Playwright verified: browser tab title = 'Sistem Laporan Keuangan | BUMDES Karya Raharja'; favicon link[rel=icon] points to /logo-bumdes.webp; Login page renders <img data-testid='bumdes-logo' src='/logo-bumdes.webp' naturalWidth=2000> (no more phosphor duotone icons); after admin login sidebar shows <img data-testid='sidebar-logo' src='/logo-bumdes.webp' naturalWidth=2000>; dashboard greeting = 'Admin Utama, ini ringkasan tahun ini.'; navigation to /transactions, /accounts, /users works; mobile viewport (390x844) top-bar renders small logo (visible, naturalWidth=2000). Note: initial fetch showed stale index.html served without <link rel=icon> and old description — required `supervisorctl restart frontend` to pick up index.html changes (CRA caches template in memory); after restart, favicon+description reflect the new values.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login/Sidebar", "issues": ["Logo image renders correctly with rounded-full mask and 3px white border ring. No contrast/spacing issues observed."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter5_logo.py",
+    "/app/test_reports/pytest/pytest_iter5.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "index.html changes (favicon, description, title) require frontend supervisor restart to take effect because CRA dev server caches the HTML template — worth documenting for future iterations so agents don't chase phantom favicon-missing bugs.",
+    "Backend embeds a 900KB 2000x2000 PNG logo on every PDF page (only used in _pdf_header once, so ReportLab does compress it — final PDFs still ~500-800KB which is acceptable but could be halved by shipping a 512x512 PNG instead).",
+    "server.py now ~1189 lines — still recommend splitting PDF module into pdf_reports.py (unchanged suggestion from iter4).",
+    "Consider adding <link rel='apple-touch-icon' href='/logo-bumdes.webp' /> for better mobile home-screen support (nice-to-have)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter5_logo.py (new — 15 tests covering logo asset, login/list endpoints non-regression, and all 6 PDFs with size>300KB + text extraction)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (login logo, sidebar logo, favicon, title, mobile top-bar, dashboard greeting, nav routes all verified)"},
+  "test_credentials": "admin/admin123, budianto/direktur123, riska/bendahara123 — all working.",
+  "seed_data_creation": "No new seed data. Uses existing DB.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 5 = logo-only change; all iter4 features remain functional. If main agent modifies /app/frontend/public/index.html (title/favicon/meta) again, remember to `sudo supervisorctl restart frontend` and wait ~10s for CRA to re-serve the new template — hot reload alone does NOT pick up index.html changes. PDF logo path is /app/backend/logo-bumdes.png loaded via _LOGO_PATH constant; if missing, _pdf_header falls back to text-only header (no exception raised).",
+  "rca_of_the_issue": "N/A — no bugs. One environmental gotcha discovered: CRA dev server serves cached index.html; supervisorctl restart frontend required to publish new favicon/title. Documented for next agent."
+}

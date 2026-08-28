@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import api, { fmtRp } from "@/lib/api";
+import api, { fmtRp, ROLE_LABELS } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, CartesianGrid,
 } from "recharts";
 import { TrendUp, TrendDown, Coin, Storefront, ReceiptX } from "@phosphor-icons/react";
 
@@ -12,14 +12,48 @@ const TOOLTIP_STYLE = { background: "white", border: "1px solid #E8EAE6", border
 const PIE_LEGEND_STYLE = { fontSize: 11 };
 const yTickFormatter = (v) => (v >= 1e6 ? `${(v/1e6).toFixed(1)}Jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}rb` : v);
 
+const PERIODS = [
+  { key: "bulan", label: "Per Bulan", months: 1 },
+  { key: "3bulan", label: "Per 3 Bulan", months: 3 },
+  { key: "6bulan", label: "Per 6 Bulan", months: 6 },
+  { key: "tahun", label: "Per Tahun", months: 12 },
+];
+
+function computeRange(period) {
+  const now = new Date();
+  const end = now.toISOString().slice(0, 10);
+  if (period === "tahun") {
+    const start = `${now.getFullYear()}-01-01`;
+    return { start, end };
+  }
+  const cfg = PERIODS.find(p => p.key === period);
+  const startDate = new Date(now);
+  startDate.setMonth(startDate.getMonth() - (cfg?.months || 12) + 1);
+  startDate.setDate(1);
+  const start = startDate.toISOString().slice(0, 10);
+  return { start, end };
+}
+
+const RANGE_LABELS = {
+  bulan: "bulan ini",
+  "3bulan": "3 bulan terakhir",
+  "6bulan": "6 bulan terakhir",
+  tahun: "tahun ini",
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState("tahun");
 
   useEffect(() => {
-    api.get("/reports/dashboard").then((r) => setData(r.data)).finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    const { start, end } = computeRange(period);
+    api.get("/reports/dashboard", { params: { start_date: start, end_date: end } })
+      .then((r) => setData(r.data))
+      .finally(() => setLoading(false));
+  }, [period]);
 
   const kpis = useMemo(() => data ? [
     { key: "pendapatan", label: "Total Pendapatan", value: data.total_pendapatan, icon: TrendUp, bg: "var(--primary-light)", color: "#2E4F32" },
@@ -28,17 +62,32 @@ export default function Dashboard() {
     { key: "tx", label: "Jumlah Transaksi", value: data.total_transactions, icon: ReceiptX, bg: "var(--secondary-purple)", color: "#4a2760", isCount: true },
   ] : [], [data]);
 
-  if (loading) return <div className="text-sm">Memuat dashboard...</div>;
+  if (loading && !data) return <div className="text-sm">Memuat dashboard...</div>;
   if (!data) return <div className="text-sm">Tidak ada data.</div>;
+
+  const jabatan = ROLE_LABELS[user?.role] || "Pengguna";
 
   return (
     <div className="space-y-6" data-testid="dashboard-page">
       <div>
         <p className="label mb-1">Selamat Datang</p>
-        <h1 className="font-heading text-3xl sm:text-4xl font-bold">{user?.name?.split(" ")[0] || "Pengguna"}, ini ringkasan hari ini.</h1>
+        <h1 className="font-heading text-3xl sm:text-4xl font-bold" data-testid="dashboard-greeting">
+          {jabatan}, ini ringkasan {RANGE_LABELS[period]}.
+        </h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
           BUMDES Karya Raharja • Desa Wonoharjo • {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
+      </div>
+
+      {/* Period selector */}
+      <div className="flex gap-2 flex-wrap" data-testid="period-selector">
+        {PERIODS.map(p => (
+          <button key={p.key} onClick={() => setPeriod(p.key)}
+                  data-testid={`period-${p.key}`}
+                  className={`btn text-sm ${period === p.key ? "btn-secondary" : "btn-outline"}`}>
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {/* KPIs */}
@@ -64,20 +113,27 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card lg:col-span-2">
-          <h3 className="font-heading text-lg font-semibold mb-4">Tren Pendapatan & Beban (6 Bulan Terakhir)</h3>
+          <h3 className="font-heading text-lg font-semibold mb-4">
+            Tren Pendapatan & Beban ({RANGE_LABELS[period]})
+          </h3>
           {data.monthly?.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={data.monthly}>
+              <LineChart data={data.monthly} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E8EAE6" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={yTickFormatter} />
                 <Tooltip formatter={(v) => fmtRp(v)} contentStyle={TOOLTIP_STYLE} />
                 <Legend />
-                <Bar dataKey="pendapatan" name="Pendapatan" fill="#8CA650" radius={[4,4,0,0]} />
-                <Bar dataKey="beban" name="Beban" fill="#F4A261" radius={[4,4,0,0]} />
-              </BarChart>
+                <Line type="monotone" dataKey="pendapatan" name="Pendapatan"
+                      stroke="#8CA650" strokeWidth={3}
+                      dot={{ fill: "#8CA650", r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="beban" name="Beban"
+                      stroke="#F4A261" strokeWidth={3}
+                      dot={{ fill: "#F4A261", r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-sm py-16 text-center" style={{ color: "var(--text-muted)" }}>Belum ada transaksi tercatat.</p>
+            <p className="text-sm py-16 text-center" style={{ color: "var(--text-muted)" }}>Belum ada transaksi pada periode ini.</p>
           )}
         </div>
 

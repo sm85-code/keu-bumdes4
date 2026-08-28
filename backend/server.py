@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Query
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -19,7 +19,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image as RLImage
 )
 
 from models import (
@@ -105,9 +105,16 @@ async def seed_startup():
             await db.unit_usaha.insert_many(docs)
         logger.info(f"Seeded {len(docs)} unit usaha")
 
-    # seed transaction types collection (for dropdown)
-    await db.transaction_types.delete_many({})
-    await db.transaction_types.insert_many(TRANSACTION_TYPES)
+    # seed transaction types (idempotent - only if collection empty; preserve edits)
+    if await db.transaction_types.count_documents({}) == 0:
+        await db.transaction_types.insert_many([{**t} for t in TRANSACTION_TYPES])
+        logger.info(f"Seeded {len(TRANSACTION_TYPES)} transaction types")
+    # backfill unit_codes for existing rows that lack the field
+    for t in TRANSACTION_TYPES:
+        await db.transaction_types.update_one(
+            {"code": t["code"], "unit_codes": {"$exists": False}},
+            {"$set": {"unit_codes": t["unit_codes"]}}
+        )
 
     # seed default users if none
     if await db.users.count_documents({}) == 0:
@@ -265,12 +272,85 @@ async def list_accounts(_: dict = Depends(get_current_user_payload)):
 
 
 @api.post("/accounts", response_model=Account)
-async def create_account(payload: AccountCreate, _: dict = Depends(require_roles("admin", "direktur", "bendahara"))):
+async def create_account(payload: AccountCreate, _: dict = Depends(require_roles(*WRITE_LEVEL))):
     if await db.accounts.find_one({"code": payload.code}):
         raise HTTPException(status_code=400, detail="Kode akun sudah ada")
     acc = Account(**payload.model_dump())
     await db.accounts.insert_one(acc.to_mongo())
     return acc
+
+
+@api.put("/accounts/{code}", response_model=Account)
+async def update_account(code: str, payload: AccountCreate, _: dict = Depends(require_roles(*ADMIN_LEVEL))):
+    existing = await db.accounts.find_one({"code": code}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Kode akun tidak ditemukan")
+    data = payload.model_dump()
+    # keep id, allow renaming code
+    if data["code"] != code and await db.accounts.find_one({"code": data["code"]}):
+        raise HTTPException(status_code=400, detail="Kode akun tujuan sudah ada")
+    await db.accounts.update_one({"code": code}, {"$set": data})
+    updated = await db.accounts.find_one({"code": data["code"]}, {"_id": 0})
+    return Account(**updated)
+
+
+@api.delete("/accounts/{code}")
+async def delete_account(code: str, _: dict = Depends(require_roles(*ADMIN_LEVEL))):
+    # prevent delete if referenced by any transaction
+    used = await db.transactions.find_one(
+        {"$or": [{"debit_account_code": code}, {"credit_account_code": code}]},
+        {"_id": 1}
+    )
+    if used:
+        raise HTTPException(status_code=400, detail="Kode akun sedang dipakai transaksi, tidak dapat dihapus")
+    r = await db.accounts.delete_one({"code": code})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Kode akun tidak ditemukan")
+    return {"deleted": r.deleted_count}
+
+
+# ==================== TRANSACTION TYPES CRUD ====================
+@api.post("/transaction-types")
+async def create_tx_type(payload: dict, _: dict = Depends(require_roles(*ADMIN_LEVEL))):
+    required = {"code", "name", "debit", "credit"}
+    if not required.issubset(payload.keys()):
+        raise HTTPException(status_code=400, detail="Field wajib: code, name, debit, credit")
+    if await db.transaction_types.find_one({"code": payload["code"]}):
+        raise HTTPException(status_code=400, detail="Kode jenis transaksi sudah ada")
+    doc = {
+        "code": payload["code"], "name": payload["name"],
+        "debit": payload["debit"], "credit": payload["credit"],
+        "unit_codes": payload.get("unit_codes", []),
+    }
+    await db.transaction_types.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.put("/transaction-types/{code}")
+async def update_tx_type(code: str, payload: dict, _: dict = Depends(require_roles(*ADMIN_LEVEL))):
+    existing = await db.transaction_types.find_one({"code": code}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Jenis transaksi tidak ditemukan")
+    upd = {}
+    for k in ("name", "debit", "credit", "unit_codes"):
+        if k in payload:
+            upd[k] = payload[k]
+    if "code" in payload and payload["code"] != code:
+        if await db.transaction_types.find_one({"code": payload["code"]}):
+            raise HTTPException(status_code=400, detail="Kode tujuan sudah ada")
+        upd["code"] = payload["code"]
+    await db.transaction_types.update_one({"code": code}, {"$set": upd})
+    new_code = upd.get("code", code)
+    return await db.transaction_types.find_one({"code": new_code}, {"_id": 0})
+
+
+@api.delete("/transaction-types/{code}")
+async def delete_tx_type(code: str, _: dict = Depends(require_roles(*ADMIN_LEVEL))):
+    r = await db.transaction_types.delete_one({"code": code})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Jenis transaksi tidak ditemukan")
+    return {"deleted": r.deleted_count}
 
 
 # ==================== TRANSACTION TYPES ====================
@@ -316,6 +396,109 @@ async def create_transaction(payload: TransactionCreate, dep: dict = Depends(req
     tx = Transaction(**{**payload.model_dump(), "unit_usaha_id": unit_id, "created_by": user.id})
     await db.transactions.insert_one(tx.to_mongo())
     return tx
+
+
+@api.put("/transactions/{tx_id}")
+async def update_transaction(tx_id: str, payload: TransactionCreate, dep: dict = Depends(require_not_readonly())):
+    user = await user_from_payload(dep)
+    existing = await db.transactions.find_one({"id": tx_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan")
+    # Pengelola: can only edit transactions of own unit, and can't change unit
+    if user.role == UserRole.PENGELOLA:
+        if existing.get("unit_usaha_id") != user.unit_usaha_id:
+            raise HTTPException(status_code=403, detail="Hanya bisa mengedit transaksi unit Anda")
+        payload_data = payload.model_dump()
+        payload_data["unit_usaha_id"] = user.unit_usaha_id
+    else:
+        payload_data = payload.model_dump()
+    payload_data["created_by"] = existing.get("created_by")
+    payload_data["id"] = tx_id
+    payload_data["created_at"] = existing.get("created_at")
+    await db.transactions.update_one({"id": tx_id}, {"$set": payload_data})
+    return await db.transactions.find_one({"id": tx_id}, {"_id": 0})
+
+
+@api.post("/transactions/import")
+async def import_transactions_excel(
+    file: UploadFile = File(...),
+    dep: dict = Depends(require_roles(*WRITE_LEVEL)),
+):
+    """Import transactions from Excel. Expected columns:
+    tanggal (YYYY-MM-DD), unit_code (opsional), jenis_transaksi (code),
+    keterangan, nominal, debit (opsional), kredit (opsional), referensi (opsional).
+    """
+    from openpyxl import load_workbook
+    user = await user_from_payload(dep)
+    contents = await file.read()
+    try:
+        wb = load_workbook(io.BytesIO(contents), data_only=True)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"File Excel tidak valid: {e}")
+    ws = wb.active
+
+    header = [str(c.value or "").strip().lower() for c in ws[1]]
+
+    def col(name):
+        try:
+            return header.index(name)
+        except ValueError:
+            return None
+
+    idx_tanggal = col("tanggal")
+    idx_unit = col("unit_code")
+    idx_type = col("jenis_transaksi")
+    idx_desc = col("keterangan")
+    idx_amt = col("nominal")
+    idx_deb = col("debit")
+    idx_kre = col("kredit")
+    idx_ref = col("referensi")
+
+    if idx_tanggal is None or idx_type is None or idx_amt is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Kolom minimal wajib: tanggal, jenis_transaksi, nominal (lihat template)."
+        )
+
+    # Preload
+    tx_types = {t["code"]: t for t in await db.transaction_types.find({}, {"_id": 0}).to_list(500)}
+    units_by_code = {u["code"]: u for u in await db.unit_usaha.find({}, {"_id": 0}).to_list(50)}
+
+    inserted, errors = 0, []
+    for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if all(v in (None, "") for v in row):
+            continue
+        try:
+            tanggal = row[idx_tanggal]
+            if hasattr(tanggal, "strftime"):
+                tanggal = tanggal.strftime("%Y-%m-%d")
+            tanggal = str(tanggal).strip()
+
+            type_code = str(row[idx_type]).strip() if row[idx_type] else ""
+            if not type_code or type_code not in tx_types:
+                raise ValueError(f"Jenis transaksi '{type_code}' tidak dikenal")
+            tt = tx_types[type_code]
+
+            amount = float(row[idx_amt] or 0)
+            desc = str(row[idx_desc]).strip() if idx_desc is not None and row[idx_desc] else tt["name"]
+            unit_code = str(row[idx_unit]).strip() if idx_unit is not None and row[idx_unit] else ""
+            unit_id = units_by_code[unit_code]["id"] if unit_code and unit_code in units_by_code else None
+            debit = str(row[idx_deb]).strip() if idx_deb is not None and row[idx_deb] else tt["debit"]
+            kredit = str(row[idx_kre]).strip() if idx_kre is not None and row[idx_kre] else tt["credit"]
+            ref = str(row[idx_ref]).strip() if idx_ref is not None and row[idx_ref] else ""
+
+            tx = Transaction(
+                date=tanggal, unit_usaha_id=unit_id, transaction_type=type_code,
+                description=desc, amount=amount,
+                debit_account_code=debit, credit_account_code=kredit,
+                reference=ref, created_by=user.id,
+            )
+            await db.transactions.insert_one(tx.to_mongo())
+            inserted += 1
+        except Exception as e:
+            errors.append({"row": row_num, "error": str(e)})
+
+    return {"inserted": inserted, "errors": errors, "total_rows": ws.max_row - 1}
 
 
 @api.delete("/transactions/{tx_id}")
@@ -397,7 +580,11 @@ async def _calc_balances(start_date: Optional[str], end_date: Optional[str]):
 
 
 @api.get("/reports/dashboard")
-async def dashboard(payload: dict = Depends(get_current_user_payload)):
+async def dashboard(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    payload: dict = Depends(get_current_user_payload),
+):
     user = await user_from_payload(payload)
     # scope: pengelola only own unit
     filter_unit = user.unit_usaha_id if user.role == UserRole.PENGELOLA else None
@@ -405,6 +592,12 @@ async def dashboard(payload: dict = Depends(get_current_user_payload)):
     q: dict = {}
     if filter_unit:
         q["unit_usaha_id"] = filter_unit
+    if start_date and end_date:
+        q["date"] = {"$gte": start_date, "$lte": end_date}
+    elif start_date:
+        q["date"] = {"$gte": start_date}
+    elif end_date:
+        q["date"] = {"$lte": end_date}
     txs = await db.transactions.find(q, {"_id": 0}).to_list(20000)
     accounts = await _get_accounts_map()
 
@@ -435,7 +628,7 @@ async def dashboard(payload: dict = Depends(get_current_user_payload)):
             "laba": p["pendapatan"] - p["beban"],
         })
 
-    # monthly trend (last 6 months)
+    # monthly trend (respects filter range if present, otherwise last 6 months from data)
     from collections import defaultdict
     monthly = defaultdict(lambda: {"pendapatan": 0, "beban": 0})
     for tx in txs:
@@ -448,7 +641,9 @@ async def dashboard(payload: dict = Depends(get_current_user_payload)):
             monthly[month]["pendapatan"] += tx.get("amount", 0)
         if d_acc.get("category") == "beban":
             monthly[month]["beban"] += tx.get("amount", 0)
-    monthly_list = [{"month": m, **v} for m, v in sorted(monthly.items())][-6:]
+    monthly_list = [{"month": m, **v} for m, v in sorted(monthly.items())]
+    if not (start_date or end_date):
+        monthly_list = monthly_list[-6:]
 
     return {
         "total_pendapatan": total_pendapatan,
@@ -538,6 +733,8 @@ async def _arus_kas(start_date: str, end_date: str):
             desc = accounts.get(d, {}).get("name", d)
             kas_keluar.append({"date": tx.get("date"), "description": tx.get("description") or desc, "amount": amt})
             tot_keluar += amt
+    kas_masuk.sort(key=lambda x: x.get("date") or "")
+    kas_keluar.sort(key=lambda x: x.get("date") or "")
     return {
         "kas_masuk": kas_masuk, "kas_keluar": kas_keluar,
         "total_masuk": tot_masuk, "total_keluar": tot_keluar,
@@ -595,6 +792,7 @@ async def _per_unit_report(start_date: str, end_date: str):
             "share_pengelola_30": round(laba * 0.30, 2) if laba > 0 else 0,
             "share_bumdes_70": round(laba * 0.70, 2) if laba > 0 else 0,
         })
+    result.sort(key=lambda x: x.get("code") or "")
     return {"period": {"start": start_date, "end": end_date}, "units": result}
 
 
@@ -692,9 +890,36 @@ def _pdf_response(build_fn, filename: str):
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
+_LOGO_PATH = ROOT_DIR / "logo-bumdes.png"
+
+
 def _pdf_header(story, styles, title: str, subtitle: str = ""):
-    story.append(Paragraph("BUMDES KARYA RAHARJA", styles["Title"]))
-    story.append(Paragraph("Desa Wonoharjo, Kecamatan Pangandaran", styles["Normal"]))
+    # Logo + heading dalam tabel 2 kolom (logo kiri, teks kanan)
+    if _LOGO_PATH.exists():
+        try:
+            logo = RLImage(str(_LOGO_PATH), width=2.2 * cm, height=2.2 * cm)
+            hdr_rows = [[
+                logo,
+                [
+                    Paragraph("<b>BUMDES KARYA RAHARJA</b>", styles["Title"]),
+                    Paragraph("Desa Wonoharjo, Kecamatan Pangandaran", styles["Normal"]),
+                ],
+            ]]
+            hdr = Table(hdr_rows, colWidths=[2.6 * cm, 15 * cm])
+            hdr.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            story.append(hdr)
+        except Exception:
+            story.append(Paragraph("BUMDES KARYA RAHARJA", styles["Title"]))
+            story.append(Paragraph("Desa Wonoharjo, Kecamatan Pangandaran", styles["Normal"]))
+    else:
+        story.append(Paragraph("BUMDES KARYA RAHARJA", styles["Title"]))
+        story.append(Paragraph("Desa Wonoharjo, Kecamatan Pangandaran", styles["Normal"]))
     story.append(Spacer(1, 0.3 * cm))
     story.append(Paragraph(title, styles["Heading2"]))
     if subtitle:
@@ -722,9 +947,45 @@ def _section_row(text: str, ncols: int):
     return [P(text, _SECTION_STYLE)] + [P("") for _ in range(ncols - 1)]
 
 
+async def _signature_block():
+    """Return list of flowables for the signature area at bottom of PDF."""
+    from datetime import datetime as _dt
+    # Look up direktur + bendahara names from DB (first active user of each role)
+    dir_doc = await db.users.find_one({"role": "direktur", "active": True}, {"_id": 0, "name": 1})
+    ben_doc = await db.users.find_one({"role": "bendahara", "active": True}, {"_id": 0, "name": 1})
+    dir_name = (dir_doc or {}).get("name") or "(Direktur)"
+    ben_name = (ben_doc or {}).get("name") or "(Bendahara)"
+    place_date = f"Pangandaran, {_dt.now().strftime('%d %B %Y')}"
+
+    flow = []
+    flow.append(Spacer(1, 0.8 * cm))
+    flow.append(Paragraph(place_date, _STYLES["Normal"]))
+    flow.append(Spacer(1, 0.2 * cm))
+
+    sig_rows = [
+        [P("Mengetahui,", _CELL_STYLE), P("Disusun oleh,", _CELL_STYLE)],
+        [P("Direktur BUMDES", _CELL_STYLE), P("Bendahara BUMDES", _CELL_STYLE)],
+        [Spacer(1, 2 * cm), Spacer(1, 2 * cm)],
+        [P(f"( {dir_name} )", _CELL_BOLD), P(f"( {ben_name} )", _CELL_BOLD)],
+    ]
+    sig_table = Table(sig_rows, colWidths=[8.5 * cm, 8.5 * cm])
+    sig_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LINEABOVE", (0, 3), (-1, 3), 0.6, colors.HexColor("#2E4F32")),
+    ]))
+    flow.append(sig_table)
+    return flow
+
+
 @api.get("/reports/laba-rugi/pdf")
 async def pdf_lr(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _laba_rugi(start_date, end_date)
+    sig = await _signature_block()
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN LABA RUGI", f"Periode: {start_date} s.d. {end_date}")
@@ -747,6 +1008,7 @@ async def pdf_lr(start_date: str, end_date: str, _: dict = Depends(require_roles
         ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
         t.setStyle(ts)
         story.append(t)
+        story.extend(sig)
         return story
     return _pdf_response(build, f"Laba-Rugi_{start_date}_sd_{end_date}.pdf")
 
@@ -754,6 +1016,7 @@ async def pdf_lr(start_date: str, end_date: str, _: dict = Depends(require_roles
 @api.get("/reports/neraca/pdf")
 async def pdf_neraca(as_of_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _neraca(as_of_date)
+    sig = await _signature_block()
     def build():
         story = []
         _pdf_header(story, _STYLES, "NERACA", f"Per tanggal: {as_of_date}")
@@ -781,6 +1044,7 @@ async def pdf_neraca(as_of_date: str, _: dict = Depends(require_roles(*READ_LEVE
         ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
         t.setStyle(ts)
         story.append(t)
+        story.extend(sig)
         return story
     return _pdf_response(build, f"Neraca_{as_of_date}.pdf")
 
@@ -788,6 +1052,7 @@ async def pdf_neraca(as_of_date: str, _: dict = Depends(require_roles(*READ_LEVE
 @api.get("/reports/arus-kas/pdf")
 async def pdf_ak(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _arus_kas(start_date, end_date)
+    sig = await _signature_block()
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN ARUS KAS", f"Periode: {start_date} s.d. {end_date}")
@@ -810,6 +1075,7 @@ async def pdf_ak(start_date: str, end_date: str, _: dict = Depends(require_roles
         ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
         t.setStyle(ts)
         story.append(t)
+        story.extend(sig)
         return story
     return _pdf_response(build, f"Arus-Kas_{start_date}_sd_{end_date}.pdf")
 
@@ -817,6 +1083,7 @@ async def pdf_ak(start_date: str, end_date: str, _: dict = Depends(require_roles
 @api.get("/reports/perubahan-ekuitas/pdf")
 async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await _perubahan_ekuitas(start_date, end_date)
+    sig = await _signature_block()
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN PERUBAHAN EKUITAS", f"Periode: {start_date} s.d. {end_date}")
@@ -832,6 +1099,7 @@ async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles
         ts.add("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#D4E09B"))
         t.setStyle(ts)
         story.append(t)
+        story.extend(sig)
         return story
     return _pdf_response(build, f"Perubahan-Ekuitas_{start_date}_sd_{end_date}.pdf")
 
@@ -839,6 +1107,7 @@ async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles
 @api.get("/reports/per-unit/pdf")
 async def pdf_per_unit(start_date: str, end_date: str, _: dict = Depends(get_current_user_payload)):
     data = await _per_unit_report(start_date, end_date)
+    sig = await _signature_block()
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN PER UNIT USAHA", f"Periode: {start_date} s.d. {end_date}")
@@ -867,6 +1136,7 @@ async def pdf_per_unit(start_date: str, end_date: str, _: dict = Depends(get_cur
         ts.add("BACKGROUND", (0, total_row_idx), (-1, total_row_idx), colors.HexColor("#D4E09B"))
         t.setStyle(ts)
         story.append(t)
+        story.extend(sig)
         return story
     return _pdf_response(build, f"Laporan-Per-Unit_{start_date}_sd_{end_date}.pdf")
 
@@ -874,6 +1144,7 @@ async def pdf_per_unit(start_date: str, end_date: str, _: dict = Depends(get_cur
 @api.get("/reports/calk/pdf")
 async def pdf_calk(start_date: str, end_date: str, _: dict = Depends(require_roles(*READ_LEVEL))):
     data = await rpt_calk(start_date, end_date)
+    sig = await _signature_block()
     def build():
         story = []
         _pdf_header(story, _STYLES, "CATATAN ATAS LAPORAN KEUANGAN (CaLK)",
@@ -896,6 +1167,7 @@ async def pdf_calk(start_date: str, end_date: str, _: dict = Depends(require_rol
         for k in data["kebijakan_akuntansi"]:
             story.append(Paragraph(f"• {k}", _STYLES["Normal"]))
             story.append(Spacer(1, 0.15 * cm))
+        story.extend(sig)
         return story
     return _pdf_response(build, f"CaLK_{start_date}_sd_{end_date}.pdf")
 

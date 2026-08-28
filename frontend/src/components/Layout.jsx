@@ -36,9 +36,8 @@ export default function Layout({ children }) {
       <div className="lg:hidden fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14"
            style={{ background: "white", borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--primary-light)" }}>
-            <Calculator size={18} weight="duotone" color="#2E4F32" />
-          </div>
+          <img src="/logo-bumdes.webp" alt="Logo" className="w-8 h-8 rounded-full object-cover"
+               style={{ border: "1px solid var(--border)" }} />
           <span className="font-heading font-bold text-sm">BUMDES Karya Raharja</span>
         </div>
         <button data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} className="p-2">
@@ -53,9 +52,9 @@ export default function Layout({ children }) {
         style={{ background: "white", borderRight: "1px solid var(--border)" }}
       >
         <div className="p-6 flex items-center gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "var(--primary-light)" }}>
-            <Calculator size={24} weight="duotone" color="#2E4F32" />
-          </div>
+          <img src="/logo-bumdes.webp" alt="Logo BUMDES" data-testid="sidebar-logo"
+               className="w-11 h-11 rounded-full object-cover"
+               style={{ background: "white", border: "1px solid var(--border)" }} />
           <div>
             <div className="font-heading font-bold text-base leading-tight">BUMDES</div>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>Karya Raharja</div>

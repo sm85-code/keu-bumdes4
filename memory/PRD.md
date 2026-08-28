@@ -1,64 +1,55 @@
 # PRD - Aplikasi Laporan Keuangan BUMDES Karya Raharja
 
-## Problem Statement (Original)
-Ibu Riska Vianti (Bendahara BUMDES Karya Raharja, Desa Wonoharjo, Pangandaran) membutuhkan aplikasi laporan keuangan lengkap sesuai Kepmendesa PDTT No. 136 Tahun 2022 untuk mengelola 6 unit usaha (Pembibitan Domba Garut, Ternak Ikan Mujaer Bioflok, Sewa Angkutan, Perdagangan & Produksi, Toko Offline, Toko Online). Sistem bagi hasil 30% pengelola / 70% BUMDES.
+## Problem Statement
+Bendahara BUMDES Karya Raharja (Desa Wonoharjo, Pangandaran) membutuhkan aplikasi laporan keuangan lengkap sesuai Kepmendesa PDTT No. 136/2022 untuk 6 unit usaha, sistem bagi hasil 30% pengelola / 70% BUMDES.
 
-## User Personas / Roles (6)
-- **Admin Utama** — kelola semua data + kelola pengguna (satu-satunya yang bisa lihat/edit /users)
-- **Direktur (Budianto)** — akses penuh transaksi & laporan (tanpa /users)
-- **Bendahara (Riska)** — input transaksi + semua laporan + bagi hasil
-- **Pengelola Unit Usaha** — hanya unit sendiri (Transaksi, Mitra, Laporan Per Unit)
-- **Pengawas** — read-only setara Direktur, tidak bisa POST/DELETE apapun
-- **Penasihat** — read-only setara Direktur, tidak bisa POST/DELETE apapun
+## User Personas / RBAC (6 role)
+- **Admin Utama**: full + kelola pengguna, CRUD COA, CRUD Jenis Transaksi
+- **Direktur (Budianto)**: full read + write transaksi
+- **Bendahara (Riska)**: full transaksi + laporan + import Excel
+- **Pengelola Unit**: hanya unit sendiri
+- **Pengawas / Penasihat**: read-only setara Direktur
 
-## Core Requirements (Static)
-1. Laporan sesuai Kepmendesa 136/2022 (Neraca, L/R, Arus Kas, Perubahan Ekuitas, CaLK, Per Unit, Bagi Hasil) — export PDF word-wrap rapi
-2. Multi-user login username/password + RBAC 6 role
-3. Input transaksi cepat (tanggal, jenis, nominal) → laporan otomatis
-4. Dashboard ringkasan 6 unit + baris TOTAL + grafik pendapatan/beban
-5. Chart of Accounts (COA) berdasar Kepmendesa 136/2022 (bisa CRUD)
-6. Tema pastel hijau muda + krem, responsif mobile
+## Core Features (Implemented)
+1. Auth JWT username/password + RBAC 6 role + password recovery admin-view
+2. 54 kode akun COA + 27 jenis transaksi (per unit usaha) + CRUD keduanya (admin)
+3. Input transaksi cepat + edit + Excel import (bendahara/direktur/admin)
+4. Filter jenis transaksi mengikuti unit terpilih
+5. Dashboard: 4 KPI + period selector (bulan/3bulan/6bulan/tahun, default tahun), LineChart tren, PieChart kontribusi, ringkasan 6 unit + baris TOTAL
+6. 7 Laporan lengkap (Neraca, L/R, Arus Kas sorted date, Perubahan Ekuitas, CaLK, Per Unit sorted code, Bagi Hasil)
+7. Export PDF dengan logo BUMDES + word-wrap + tanda tangan Direktur & Bendahara
+8. Bagi Hasil 30/70 otomatis + delete per baris
+9. CRUD Mitra + Unit Usaha
+10. Kelola Pengguna (admin only): 6 role, kolom password reveal/reset
+11. Mobile responsive + logo BUMDES di sidebar & favicon
+12. Tema hijau muda + krem pastel
 
 ## Architecture
-- Backend: FastAPI + MongoDB + JWT (bcrypt) + ReportLab (PDF word-wrap)
+- Backend: FastAPI + MongoDB + JWT (bcrypt) + ReportLab (PDF + logo PNG) + openpyxl (Excel import)
 - Frontend: React 19 + Tailwind + Recharts + Phosphor Icons + Plus Jakarta Sans/Outfit
-- RBAC: `READ_LEVEL` (6 role), `WRITE_LEVEL` (admin/direktur/bendahara), `ADMIN_LEVEL`, `require_not_readonly()` untuk block pengawas/penasihat pada POST tx/mitra
 
-## What's Implemented (2026-01)
-- ✅ Auth JWT + RBAC 6 role + seed 3 default user + plain_password backfill (admin-view untuk recovery)
-- ✅ 54 kode akun COA + CRUD (form Tambah COA) + 6 unit usaha + 27 tipe transaksi
-- ✅ Input transaksi (double-entry, auto pilih debit/kredit dari jenis)
-- ✅ Dashboard: 4 KPI, chart bar tren bulanan, pie kontribusi, tabel 6 unit **+ baris TOTAL** (hijau muda)
-- ✅ 7 Laporan (Neraca, L/R, Arus Kas, Perubahan Ekuitas, CaLK, Per Unit, Bagi Hasil) + Export PDF word-wrap (Paragraph in cells, section headers, total rows highlighted)
-- ✅ Bagi Hasil 30/70 otomatis + **hapus per baris**
-- ✅ CRUD Mitra, Unit Usaha, Kode Akun
-- ✅ Kelola Pengguna (admin-only): 6 role, kolom password (reveal per-baris + toggle global), reset password, tambah pengguna
-- ✅ Role Pengawas & Penasihat: read-only (tidak bisa POST/DELETE transaksi/mitra/bagi-hasil/dsb.)
-- ✅ Mobile responsive + sidebar collapse + custom pastel theme
-- ✅ Code quality: useCallback, useMemo, stable keys, extracted constants
-- ✅ Panduan instalasi non-teknis di /app/PANDUAN_INSTALASI.md
-
-## Testing Status (semua 100%)
-- Iteration 1: backend 33/33 + frontend 100% ✅
-- Iteration 2 (fitur baru): backend 49/49 + frontend 100% ✅
-- Iteration 3 (RBAC patch): backend 12/12 + frontend 8/8 ✅
-- Tidak ada regresi
+## Testing Status (5 iterations, all 100%)
+- Iter 1: baseline (backend 33/33 + frontend 100%)
+- Iter 2: 4 fitur baru (backend 49/49 + frontend 100%)
+- Iter 3: RBAC hardening (backend 12/12 + frontend 8/8)
+- Iter 4: 7 revisi besar (backend 17/17 + frontend 100%)
+- Iter 5: Logo BUMDES asli (backend 15/15 + frontend 100%)
+- Total: **126 backend tests pass**, no regression
 
 ## Prioritized Backlog
 
-### P1 (Security)
-- Enkripsi at-rest untuk `plain_password` di DB (saat ini plaintext, admin-only access)
-- Migrasi token dari localStorage → httpOnly cookie
-- Audit log (who did what when)
+### P1
+- Enkripsi at-rest untuk plain_password
+- HttpOnly cookies (bukan localStorage)
+- Audit log transaksi
 
-### P2 (Feature)
-- Import bulk transaksi via Excel/CSV
+### P2
 - Buku besar per akun (drill-down)
-- Multi-tahun budgeting & realisasi
-- Backup/restore database
+- Multi-tahun budget vs realisasi
+- Notifikasi email setoran bulanan (SendGrid/Resend)
+- Optimize logo PNG ke 512x512 (dari 2000x2000)
 
-### P3 (Nice-to-have)
+### P3
+- Split server.py jadi routers/
+- Extract PDF module ke pdf_reports.py
 - Google Login opsional
-- Split server.py jadi multiple router
-- Extract PDF table-builder helper (DRY)
-- Dashboard per-unit view untuk pengelola
