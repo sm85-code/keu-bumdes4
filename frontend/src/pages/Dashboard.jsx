@@ -37,7 +37,7 @@ export default function Dashboard() {
         <p className="label mb-1">Selamat Datang</p>
         <h1 className="font-heading text-3xl sm:text-4xl font-bold">{user?.name?.split(" ")[0] || "Pengguna"}, ini ringkasan hari ini.</h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          BUMDES Karya Waharja • Desa Wonoharjo • {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          BUMDES Karya Raharja • Desa Wonoharjo • {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
       </div>
 

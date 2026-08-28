@@ -1,8 +1,8 @@
-# PANDUAN INSTALASI - Aplikasi Laporan Keuangan BUMDES Karya Waharja
+# PANDUAN INSTALASI - Aplikasi Laporan Keuangan BUMDES Karya Raharja
 
 ## 🎯 Aplikasi ini sudah HIDUP & Siap Dipakai!
 
-Aplikasi ini sudah otomatis di-deploy oleh platform Emergent. Ibu Riska dan tim BUMDES Karya Waharja dapat langsung menggunakannya melalui HP Android atau laptop.
+Aplikasi ini sudah otomatis di-deploy oleh platform Emergent. Ibu Riska dan tim BUMDES Karya Raharja dapat langsung menggunakannya melalui HP Android atau laptop.
 
 ---
 
@@ -103,7 +103,7 @@ yarn start
 
 ## 📊 Chart of Accounts (Kode Akun)
 
-Aplikasi sudah menyediakan **54 kode akun** default sesuai Kepmendesa PDTT No. 136/2022, disesuaikan dengan karakteristik 6 unit usaha BUMDES Karya Waharja. Kelompok besar:
+Aplikasi sudah menyediakan **54 kode akun** default sesuai Kepmendesa PDTT No. 136/2022, disesuaikan dengan karakteristik 6 unit usaha BUMDES Karya Raharja. Kelompok besar:
 
 - **1-xxxx** — Aset (Kas, Bank, Piutang, Persediaan, Aset Tetap)
 - **2-xxxx** — Kewajiban (Utang Usaha, Utang Bagi Hasil)
@@ -115,4 +115,4 @@ Dapat diperluas via menu **"Kode Akun (COA)"** oleh Admin/Direktur/Bendahara.
 
 ---
 
-Selamat menggunakan, Bu Riska! Semoga aplikasi ini membantu pengelolaan keuangan BUMDES Karya Waharja lebih rapi, transparan, dan sesuai regulasi. 🌾
+Selamat menggunakan, Bu Riska! Semoga aplikasi ini membantu pengelolaan keuangan BUMDES Karya Raharja lebih rapi, transparan, dan sesuai regulasi. 🌾

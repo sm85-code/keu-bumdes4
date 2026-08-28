@@ -1,7 +1,7 @@
-# PRD - Aplikasi Laporan Keuangan BUMDES Karya Waharja
+# PRD - Aplikasi Laporan Keuangan BUMDES Karya Raharja
 
 ## Problem Statement (Original)
-Ibu Riska Vianti (Bendahara BUMDES Karya Waharja, Desa Wonoharjo, Pangandaran) membutuhkan aplikasi laporan keuangan lengkap sesuai Kepmendesa PDTT No. 136 Tahun 2022 untuk mengelola 6 unit usaha (Pembibitan Domba Garut, Ternak Ikan Mujaer Bioflok, Sewa Angkutan, Perdagangan & Produksi, Toko Offline, Toko Online). Sistem bagi hasil 30% pengelola / 70% BUMDES.
+Ibu Riska Vianti (Bendahara BUMDES Karya Raharja, Desa Wonoharjo, Pangandaran) membutuhkan aplikasi laporan keuangan lengkap sesuai Kepmendesa PDTT No. 136 Tahun 2022 untuk mengelola 6 unit usaha (Pembibitan Domba Garut, Ternak Ikan Mujaer Bioflok, Sewa Angkutan, Perdagangan & Produksi, Toko Offline, Toko Online). Sistem bagi hasil 30% pengelola / 70% BUMDES.
 
 ## User Personas / Roles (6)
 - **Admin Utama** — kelola semua data + kelola pengguna (satu-satunya yang bisa lihat/edit /users)

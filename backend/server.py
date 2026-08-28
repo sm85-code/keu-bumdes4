@@ -1,4 +1,4 @@
-"""BUMDES Karya Waharja - Financial Reporting App
+"""BUMDES Karya Raharja - Financial Reporting App
 Backend API sesuai Kepmendesa PDTT No 136/2022.
 """
 import os
@@ -59,7 +59,7 @@ mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
-app = FastAPI(title="BUMDES Karya Waharja API")
+app = FastAPI(title="BUMDES Karya Raharja API")
 api = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
@@ -630,7 +630,7 @@ async def rpt_calk(start_date: str, end_date: str, _: dict = Depends(require_rol
     ak = await _arus_kas(start_date, end_date)
     return {
         "informasi_umum": {
-            "nama": "BUMDES Karya Waharja",
+            "nama": "BUMDES Karya Raharja",
             "alamat": "Desa Wonoharjo, Kec. Pangandaran",
             "direktur": "Budianto",
             "dasar_hukum": "Kepmendesa PDTT No. 136 Tahun 2022",
@@ -693,10 +693,10 @@ def _pdf_response(build_fn, filename: str):
 
 
 def _pdf_header(story, styles, title: str, subtitle: str = ""):
-    story.append(Paragraph("<b>BUMDES KARYA WAHARJA</b>", styles["Title"]))
+    story.append(Paragraph("BUMDES KARYA RAHARJA", styles["Title"]))
     story.append(Paragraph("Desa Wonoharjo, Kecamatan Pangandaran", styles["Normal"]))
     story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph(f"<b>{title}</b>", styles["Heading2"]))
+    story.append(Paragraph(title, styles["Heading2"]))
     if subtitle:
         story.append(Paragraph(subtitle, styles["Normal"]))
     story.append(Spacer(1, 0.4 * cm))
@@ -719,7 +719,7 @@ def _table_style():
 
 
 def _section_row(text: str, ncols: int):
-    return [P(f"<b>{text}</b>", _SECTION_STYLE)] + [P("") for _ in range(ncols - 1)]
+    return [P(text, _SECTION_STYLE)] + [P("") for _ in range(ncols - 1)]
 
 
 @api.get("/reports/laba-rugi/pdf")
@@ -728,17 +728,17 @@ async def pdf_lr(start_date: str, end_date: str, _: dict = Depends(require_roles
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN LABA RUGI", f"Periode: {start_date} s.d. {end_date}")
-        rows = [[P("<b>Kode</b>", _CELL_BOLD), P("<b>Nama Akun</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        rows = [[P("Kode", _CELL_BOLD), P("Nama Akun", _CELL_BOLD), P("Jumlah", _CELL_BOLD_RIGHT)]]
         section_rows = []
         rows.append(_section_row("PENDAPATAN", 3)); section_rows.append(len(rows) - 1)
         for it in data["pendapatan"]:
             rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Pendapatan</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_pendapatan'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Pendapatan", _CELL_BOLD), P(f"{fmt_rp(data['total_pendapatan'])}", _CELL_BOLD_RIGHT)])
         rows.append(_section_row("BEBAN", 3)); section_rows.append(len(rows) - 1)
         for it in data["beban"]:
             rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Beban</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_beban'])}</b>", _CELL_BOLD_RIGHT)])
-        rows.append([P(""), P("<b>LABA / (RUGI) BERSIH</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['laba_bersih'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Beban", _CELL_BOLD), P(f"{fmt_rp(data['total_beban'])}", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("LABA / (RUGI) BERSIH", _CELL_BOLD), P(f"{fmt_rp(data['laba_bersih'])}", _CELL_BOLD_RIGHT)])
         total_row_idx = len(rows) - 1
         t = Table(rows, colWidths=[2.3 * cm, 9.7 * cm, 5.5 * cm], repeatRows=1)
         ts = _table_style()
@@ -757,22 +757,22 @@ async def pdf_neraca(as_of_date: str, _: dict = Depends(require_roles(*READ_LEVE
     def build():
         story = []
         _pdf_header(story, _STYLES, "NERACA", f"Per tanggal: {as_of_date}")
-        rows = [[P("<b>Kode</b>", _CELL_BOLD), P("<b>Akun</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        rows = [[P("Kode", _CELL_BOLD), P("Akun", _CELL_BOLD), P("Jumlah", _CELL_BOLD_RIGHT)]]
         section_rows = []
         rows.append(_section_row("ASET", 3)); section_rows.append(len(rows) - 1)
         for it in data["aset"]:
             rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Aset</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_aset'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Aset", _CELL_BOLD), P(f"{fmt_rp(data['total_aset'])}", _CELL_BOLD_RIGHT)])
         rows.append(_section_row("KEWAJIBAN", 3)); section_rows.append(len(rows) - 1)
         for it in data["kewajiban"]:
             rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Kewajiban</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_kewajiban'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Kewajiban", _CELL_BOLD), P(f"{fmt_rp(data['total_kewajiban'])}", _CELL_BOLD_RIGHT)])
         rows.append(_section_row("EKUITAS", 3)); section_rows.append(len(rows) - 1)
         for it in data["ekuitas"]:
             rows.append([P(it["code"]), P(it["name"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Ekuitas</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_ekuitas'])}</b>", _CELL_BOLD_RIGHT)])
-        rows.append([P(""), P("<b>TOTAL PASIVA (Kewajiban + Ekuitas)</b>", _CELL_BOLD),
-                     P(f"<b>{fmt_rp(data['total_pasiva'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Ekuitas", _CELL_BOLD), P(f"{fmt_rp(data['total_ekuitas'])}", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("TOTAL PASIVA (Kewajiban + Ekuitas)", _CELL_BOLD),
+                     P(f"{fmt_rp(data['total_pasiva'])}", _CELL_BOLD_RIGHT)])
         total_row_idx = len(rows) - 1
         t = Table(rows, colWidths=[2.3 * cm, 9.7 * cm, 5.5 * cm], repeatRows=1)
         ts = _table_style()
@@ -791,17 +791,17 @@ async def pdf_ak(start_date: str, end_date: str, _: dict = Depends(require_roles
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN ARUS KAS", f"Periode: {start_date} s.d. {end_date}")
-        rows = [[P("<b>Tanggal</b>", _CELL_BOLD), P("<b>Keterangan</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        rows = [[P("Tanggal", _CELL_BOLD), P("Keterangan", _CELL_BOLD), P("Jumlah", _CELL_BOLD_RIGHT)]]
         section_rows = []
         rows.append(_section_row("KAS MASUK", 3)); section_rows.append(len(rows) - 1)
         for it in data["kas_masuk"]:
             rows.append([P(it["date"]), P(it["description"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Kas Masuk</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_masuk'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Kas Masuk", _CELL_BOLD), P(f"{fmt_rp(data['total_masuk'])}", _CELL_BOLD_RIGHT)])
         rows.append(_section_row("KAS KELUAR", 3)); section_rows.append(len(rows) - 1)
         for it in data["kas_keluar"]:
             rows.append([P(it["date"]), P(it["description"]), P(fmt_rp(it["amount"]), _CELL_RIGHT)])
-        rows.append([P(""), P("<b>Total Kas Keluar</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['total_keluar'])}</b>", _CELL_BOLD_RIGHT)])
-        rows.append([P(""), P("<b>ARUS KAS BERSIH</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['arus_kas_bersih'])}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("Total Kas Keluar", _CELL_BOLD), P(f"{fmt_rp(data['total_keluar'])}", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("ARUS KAS BERSIH", _CELL_BOLD), P(f"{fmt_rp(data['arus_kas_bersih'])}", _CELL_BOLD_RIGHT)])
         total_row_idx = len(rows) - 1
         t = Table(rows, colWidths=[2.5 * cm, 9.5 * cm, 5.5 * cm], repeatRows=1)
         ts = _table_style()
@@ -821,11 +821,11 @@ async def pdf_pe(start_date: str, end_date: str, _: dict = Depends(require_roles
         story = []
         _pdf_header(story, _STYLES, "LAPORAN PERUBAHAN EKUITAS", f"Periode: {start_date} s.d. {end_date}")
         rows = [
-            [P("<b>Uraian</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)],
+            [P("Uraian", _CELL_BOLD), P("Jumlah", _CELL_BOLD_RIGHT)],
             [P("Modal Awal Periode"), P(fmt_rp(data["modal_awal"]), _CELL_RIGHT)],
             [P("Penambahan Modal"), P(fmt_rp(data["tambahan_modal"]), _CELL_RIGHT)],
             [P("Laba/Rugi Bersih Periode Berjalan"), P(fmt_rp(data["laba_bersih_periode"]), _CELL_RIGHT)],
-            [P("<b>MODAL AKHIR PERIODE</b>", _CELL_BOLD), P(f"<b>{fmt_rp(data['modal_akhir'])}</b>", _CELL_BOLD_RIGHT)],
+            [P("MODAL AKHIR PERIODE", _CELL_BOLD), P(f"{fmt_rp(data['modal_akhir'])}", _CELL_BOLD_RIGHT)],
         ]
         t = Table(rows, colWidths=[11 * cm, 6.5 * cm], repeatRows=1)
         ts = _table_style()
@@ -842,10 +842,10 @@ async def pdf_per_unit(start_date: str, end_date: str, _: dict = Depends(get_cur
     def build():
         story = []
         _pdf_header(story, _STYLES, "LAPORAN PER UNIT USAHA", f"Periode: {start_date} s.d. {end_date}")
-        rows = [[P("<b>Kode</b>", _CELL_BOLD), P("<b>Unit Usaha</b>", _CELL_BOLD),
-                 P("<b>Pendapatan</b>", _CELL_BOLD_RIGHT), P("<b>Beban</b>", _CELL_BOLD_RIGHT),
-                 P("<b>Laba Bersih</b>", _CELL_BOLD_RIGHT),
-                 P("<b>30% Pengelola</b>", _CELL_BOLD_RIGHT), P("<b>70% BUMDES</b>", _CELL_BOLD_RIGHT)]]
+        rows = [[P("Kode", _CELL_BOLD), P("Unit Usaha", _CELL_BOLD),
+                 P("Pendapatan", _CELL_BOLD_RIGHT), P("Beban", _CELL_BOLD_RIGHT),
+                 P("Laba Bersih", _CELL_BOLD_RIGHT),
+                 P("30% Pengelola", _CELL_BOLD_RIGHT), P("70% BUMDES", _CELL_BOLD_RIGHT)]]
         total_p = total_b = total_l = total_m = total_bmd = 0.0
         for u in data["units"]:
             rows.append([P(u["code"]), P(u["name"]),
@@ -855,12 +855,12 @@ async def pdf_per_unit(start_date: str, end_date: str, _: dict = Depends(get_cur
                          P(fmt_rp(u["share_bumdes_70"]), _CELL_RIGHT)])
             total_p += u["pendapatan"]; total_b += u["beban"]; total_l += u["laba_bersih"]
             total_m += u["share_pengelola_30"]; total_bmd += u["share_bumdes_70"]
-        rows.append([P(""), P("<b>TOTAL</b>", _CELL_BOLD),
-                     P(f"<b>{fmt_rp(total_p)}</b>", _CELL_BOLD_RIGHT),
-                     P(f"<b>{fmt_rp(total_b)}</b>", _CELL_BOLD_RIGHT),
-                     P(f"<b>{fmt_rp(total_l)}</b>", _CELL_BOLD_RIGHT),
-                     P(f"<b>{fmt_rp(total_m)}</b>", _CELL_BOLD_RIGHT),
-                     P(f"<b>{fmt_rp(total_bmd)}</b>", _CELL_BOLD_RIGHT)])
+        rows.append([P(""), P("TOTAL", _CELL_BOLD),
+                     P(f"{fmt_rp(total_p)}", _CELL_BOLD_RIGHT),
+                     P(f"{fmt_rp(total_b)}", _CELL_BOLD_RIGHT),
+                     P(f"{fmt_rp(total_l)}", _CELL_BOLD_RIGHT),
+                     P(f"{fmt_rp(total_m)}", _CELL_BOLD_RIGHT),
+                     P(f"{fmt_rp(total_bmd)}", _CELL_BOLD_RIGHT)])
         total_row_idx = len(rows) - 1
         t = Table(rows, colWidths=[1.4 * cm, 4.6 * cm, 2.4 * cm, 1.9 * cm, 2.4 * cm, 2.4 * cm, 2.4 * cm], repeatRows=1)
         ts = _table_style()
@@ -885,7 +885,7 @@ async def pdf_calk(start_date: str, end_date: str, _: dict = Depends(require_rol
         story.append(Spacer(1, 0.4 * cm))
         story.append(Paragraph("<b>2. Ringkasan Kinerja Keuangan</b>", _STYLES["Heading3"]))
         rk = data["ringkasan_kinerja"]
-        rows = [[P("<b>Uraian</b>", _CELL_BOLD), P("<b>Jumlah</b>", _CELL_BOLD_RIGHT)]]
+        rows = [[P("Uraian", _CELL_BOLD), P("Jumlah", _CELL_BOLD_RIGHT)]]
         for k, v in rk.items():
             rows.append([P(k.replace("_", " ").title()), P(fmt_rp(v), _CELL_RIGHT)])
         t = Table(rows, colWidths=[11 * cm, 6 * cm], repeatRows=1)
@@ -903,7 +903,7 @@ async def pdf_calk(start_date: str, end_date: str, _: dict = Depends(require_rol
 # ==================== ROOT ====================
 @api.get("/")
 async def root():
-    return {"app": "BUMDES Karya Waharja", "version": "1.0.0"}
+    return {"app": "BUMDES Karya Raharja", "version": "1.0.0"}
 
 
 app.include_router(api)

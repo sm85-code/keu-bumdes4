@@ -1,4 +1,4 @@
-"""Backend API tests for BUMDES Karya Waharja."""
+"""Backend API tests for BUMDES Karya Raharja."""
 import os
 import pytest
 import requests

@@ -32,7 +32,7 @@ export default function Login() {
             <Calculator size={34} weight="duotone" color="#2E4F32" />
           </div>
           <h1 className="font-heading text-3xl font-bold" style={{ color: "#1A2E1E" }}>
-            BUMDES Karya Waharja
+            BUMDES Karya Raharja
           </h1>
           <p className="text-sm mt-1" style={{ color: "#2E4F32" }}>
             Sistem Laporan Keuangan • Desa Wonoharjo

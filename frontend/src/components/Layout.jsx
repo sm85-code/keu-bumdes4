@@ -39,7 +39,7 @@ export default function Layout({ children }) {
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--primary-light)" }}>
             <Calculator size={18} weight="duotone" color="#2E4F32" />
           </div>
-          <span className="font-heading font-bold text-sm">BUMDES Karya Waharja</span>
+          <span className="font-heading font-bold text-sm">BUMDES Karya Raharja</span>
         </div>
         <button data-testid="mobile-menu-btn" onClick={() => setOpen(!open)} className="p-2">
           {open ? <X size={22} /> : <List size={22} />}
@@ -58,7 +58,7 @@ export default function Layout({ children }) {
           </div>
           <div>
             <div className="font-heading font-bold text-base leading-tight">BUMDES</div>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Karya Waharja</div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Karya Raharja</div>
           </div>
         </div>
 
